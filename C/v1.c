@@ -5,7 +5,7 @@
 
 #define STRIDE (1024)
 
-int data_size = 16;
+int data_size = 11;
 char public_data[160] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
 
 // Uncomment this to leak out from another project ?
