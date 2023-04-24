@@ -97,7 +97,7 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         eprint!("latencies = [")
     }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("10000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("5000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     for i in 0..tries {
         /*#[cfg(feature = "tracing")]
@@ -257,7 +257,7 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    for j in 0..4 {
+    for j in 0..11 {
         let (score, value) = read_memory_byte(j);
         // get value 0 as char
         let ch = value[0] as u8 as char;
