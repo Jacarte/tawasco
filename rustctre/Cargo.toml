@@ -19,6 +19,10 @@ extra = []
 name = "eviction"
 path = "src/eviction.rs"
 
+[[bin]]
+name = "sp"
+path = "src/spectre_wasm.rs"
+
 #[[bin]]
 #name = "spectre"
 #path = "src/spectre.rs"
