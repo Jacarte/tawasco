@@ -1,0 +1,14 @@
+[package]
+name = "host"
+version = "0.0.1"
+publish = false
+description = "Host of the attacker and victim Wasm binaries"
+edition = "2021"
+authors = ["Jacarte <jacarte9212@gmail.com>"]
+
+
+# wasmtime as a dep
+[dependencies]
+wasmtime = "7.0.0"
+wasmtime-wasi = "7.0.0"
+wasmtime-jit = "7.0.0"
