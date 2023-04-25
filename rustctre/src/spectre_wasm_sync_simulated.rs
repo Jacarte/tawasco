@@ -24,8 +24,6 @@ extern "C" {
     // fn sync_in_sibling()
 }
 
-const STRIDE: usize = 512;
-
 const data_size: usize = 11;
 // We need to add the pad here
 static mut public_data: [u8; 160] = [2; 160];
