@@ -9,7 +9,7 @@ use std::arch::x86_64::_mm_mfence;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_rdtsc;
 
-const STRIDE: usize = 512;
+pub const STRIDE: usize = 256;
 
 static mut tmp: u8 = 0;
 
@@ -26,6 +26,7 @@ pub fn read_memory_offset(ptr: *const u8) -> u8 {
     result
 }
 
+// TODO, drop to avoid time in assignment
 #[cfg(all(target_arch = "wasm32"))]
 #[no_mangle]
 pub fn read_memory_offset(ptr: *const u8) -> u8 {
@@ -36,10 +37,11 @@ pub fn read_memory_offset(ptr: *const u8) -> u8 {
             // Push the ptr in the stack
             "local.get {}",
             "i32.load8_u 0",
+            "drop",
             //"i32.load8_u",
-            "local.set {}",
+            //"local.set {}",
             in(local) ptr,
-            lateout(local) result,
+            //lateout(local) result,
             //result = out(reg_byte) _
             options(nostack),
 
@@ -68,12 +70,14 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64
     let mut cache_hit_count = 0;
     let mut cache_miss_count = 0;
     // Get the TRIES from env
-    let tries = 100;
+    let tries = 1000;
 
     for i in 0..tries {
-        for i in 0..256 {
-            // latencies[i] = 0;
+        // TODO watch out for the optimization of this empty loop
+        unsafe {
+            _mm_mfence();
         }
+
         // PRIME
         for j in 0..256 {
             #[cfg(all(target_arch = "x86_64"))]
@@ -91,7 +95,7 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64
                 _mm_mfence();
             }
 
-            for i in 0..20 {
+            for x in 0..20 {
                 let addr = &array_for_prediction[j * STRIDE as usize] as *const u8;
                 // let start = unsafe { _rdtsc() };
                 // Read the mem addr
@@ -101,10 +105,10 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64
                     _rdtsc() - start
                 };
                 // First access is slow
-                if i == 0 {
+                if x == 0 {
                     cache_miss += end;
                     cache_miss_count += 1;
-                } else if i > 3
+                } else
                 /* discard the first 3 calls*/
                 {
                     cache_hit += end;
