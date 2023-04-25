@@ -68,7 +68,7 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64
     let mut cache_hit_count = 0;
     let mut cache_miss_count = 0;
     // Get the TRIES from env
-    let tries = 10000;
+    let tries = 100;
 
     for i in 0..tries {
         for i in 0..256 {
@@ -85,7 +85,7 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64
                 _mm_clflush((j * STRIDE) as *const u8);
             }
 
-            for _ in 0..1000 {}
+            // for _ in 0..1000 {}
             // TODO watch out for the optimization of this empty loop
             unsafe {
                 _mm_mfence();
@@ -104,7 +104,9 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64
                 if i == 0 {
                     cache_miss += end;
                     cache_miss_count += 1;
-                } else {
+                } else if i > 3
+                /* discard the first 3 calls*/
+                {
                     cache_hit += end;
                     cache_hit_count += 1;
                 }

