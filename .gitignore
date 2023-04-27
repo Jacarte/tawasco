@@ -3,3 +3,9 @@ cache
 stride
 v1
 test_wats
+samples.py
+*.obj
+*.txt
+*.bin
+__pycache__
+.vscode
