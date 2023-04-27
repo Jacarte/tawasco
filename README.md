@@ -1,8 +1,8 @@
 # This repo contains cache-timing and side-channel based attacks for WebAssembly
 
-The idea is to have POC for attacks on the two Wasm execution scenarios: in the browser and backend based.
+The idea is to have POC for attacks on the two Wasm execution scenarios: in the browser and backend based. We code the attacks in Rust and we compile them to Wasm.
 
-In the following gif we show how the Spectre POC (in the same binary) works on exfiltrating data from the host. This same mechanism can be use to violates the CFI, as shown un [Swivel](https://arxiv.org/abs/2102.12730).
+In the following gif we show how the Spectre POC (in the same binary) works on exfiltrating data. This same mechanism can be use to violates the CFI, as shown un [Swivel](https://arxiv.org/abs/2102.12730).
 
 ![gif](/docs/video.gif)
 
