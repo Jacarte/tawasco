@@ -36,10 +36,10 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
  - [x] Cache timing threshold prediction. See `host_based/rustctre/cache_time_predictor.rs`
  - [x] Using wasmtime embedded into as the host engine. See `host_based/host/src/main.rs`
  - [ ] Attack cases:
-   - [x] **C0.5**: Simple Spectre V1 in the same Wasm binary. See `host_based/rustctre/spectre_wasm.rs`
    - [x] **C1**: Simple cache timing example. See `host_based/rustctre/eviction.rs`
-   - [ ] **C2**  : Exfitlrate from host engine. See `spectre_wasm_sync_simulated.rs`
-   - [ ] **C3**  : Attacker and victim in different Wasm binaries.
+   - [x] **C2**: Simple Spectre V1 in the same Wasm binary. See `host_based/rustctre/spectre_wasm.rs`
+   - [ ] **C3**  : Exfitlrate from host engine. See `spectre_wasm_sync_simulated.rs`
+   - [ ] **C4**  : Attacker and victim in different Wasm binaries.
 - [ ] Create automatic benchmark for measuring exfiltration accuracy
 - [ ] Apply wasm-mutate to both, attacker or victim. Measure the impact on the accuracy of the attack.
 
