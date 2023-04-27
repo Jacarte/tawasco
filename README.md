@@ -15,7 +15,6 @@ In the following gif we show how the Spectre POC (in the same binary) works on e
 
 The backend based architecture is based on the wasmtime engine. The [`host`](/host_based/host) tool works as a cli. WHne it executes waits for the user to specify the Wasm to execute. Once receives it, the Wasm binary is compiled and executed in a separated thread.
 
-In the image below we show how the `host` tool works.
 
 
 
