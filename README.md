@@ -24,7 +24,7 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
   - [`host`](/host_based/host): The host tool with wasmtime as the engine.
   - [`rustctre`](/host_based/rustctre): The POCs for the attacks. We implement the POCs in Rust and we compile them to Wasm binaries.
     - [`cache_time_predictor.rs`](/host_based/rustctre/src/cache_time_predictor.rs): The cache miss/hit time predictor.
-    - [`eviction.rs`](/host_based/rustctre/src/eviction.rs): The cache timing attack. This simple POC just explicitly evicts the cache and measures the time to access the memory.
+    - [`eviction.rs`](/host_based/rustctre/src/eviction.rs): The cache timing attack. This simple POC [just explicitly evicts](https://github.com/Jacarte/TAWasm/blob/420017590f641682defbf8114ffa881d984e7709/host_based/rustctre/src/eviction.rs#L87) the cache and measures the time to access the memory.
     - [`spectre_wasm.rs`](/host_based/rustctre/src/spectre_wasm.rs): The Spectre V1 attack in the same Wasm binary.
     - [`spectre_wasm_sync_simulated.rs`](/host_based/rustctre/src/spectre_wasm_sync_simulated.rs): The Spectre V1 attack exfiltrating from the host. This assumes that the host contains secret values (TODO double check the assumptions of Swivel).
   - [`Makefile`](/host_based/Makefile): The Makefile to compile the Wasm POCs. The binaries can be compiled directly with `Cargo build --target=wasm32-wasi`, yet we do some processing for the binaries to collect some data.
