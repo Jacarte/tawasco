@@ -66,10 +66,16 @@ Questions:
     - [ ] Kryptologic
     - [ ] NSC2013
   - [ ] Perform attack
-    - [ ] Host based with wasmtime
+    - [ ] Host based with wasmtime `wasmtime run wp.wasm`
       - [ ] CHES2016
+        - [ ] DCA
+        - [ ] DFA
       - [ ] Krypto
+        - [ ] DCA
+        - [ ] DFA
       - [ ] NSC2013
+        - [ ] DCA
+        - [ ] DFA
     - [ ] Host based with V8
     - [ ] Browser based
 - [ ] Create automatic benchmark for measuring exfiltration accuracy
