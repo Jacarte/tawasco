@@ -26,7 +26,7 @@ extern "C" {
 }
 
 const data_size: usize = 11;
-const PAD: usize = 76;
+const PAD: usize = 160;
 // We need to add the pad here
 static mut public_data: [u8; PAD] = [2; PAD];
 

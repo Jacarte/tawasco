@@ -53,3 +53,24 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
     - [ ] Measures port contention in the browser.
   - [ ] Create automatic benchmark for measuring predictor accuracy.
   - [ ] Apply wasm-mutate. Measure the impact on the accuracy of the predictor.
+
+
+## Roadmap mixed
+
+Questions:
+- Does it make sense as a use case to whitebox a Wasm ?
+
+- [ ] White box cryptography [challenges](https://github.com/SideChannelMarvels/Deadpool)
+  - [ ] Compile C to Wasm
+    - [x] CHES2016
+    - [ ] Kryptologic
+    - [ ] NSC2013
+  - [ ] Perform attack
+    - [ ] Host based with wasmtime
+      - [ ] CHES2016
+      - [ ] Krypto
+      - [ ] NSC2013
+    - [ ] Host based with V8
+    - [ ] Browser based
+- [ ] Create automatic benchmark for measuring exfiltration accuracy
+- [ ] Apply wasm-mutate to both, attacker or victim. Measure the impact on the accuracy of the attack.

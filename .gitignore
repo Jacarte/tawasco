@@ -9,3 +9,4 @@ samples.py
 *.bin
 __pycache__
 .vscode
+wasi-sdk

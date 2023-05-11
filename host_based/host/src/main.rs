@@ -12,7 +12,7 @@ use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
 const STRIDE: usize = 256;
-const PAD: usize = 84;
+const PAD: usize = 160;
 
 const data_size: usize = 11;
 
