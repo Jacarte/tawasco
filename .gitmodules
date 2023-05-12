@@ -1,0 +1,3 @@
+[submodule "wbc/deadpool"]
+	path = wbc/deadpool
+	url = git@github.com:Jacarte/Deadpool.git
