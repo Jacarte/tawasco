@@ -4,3 +4,6 @@
 [submodule "wasmtime"]
 	path = wasmtime
 	url = https://github.com/Jacarte/wasmtime.git
+[submodule "Tracer"]
+	path = Tracer
+	url = https://github.com/Jacarte/Tracer.git
