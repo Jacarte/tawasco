@@ -231,9 +231,6 @@ pub fn execute_wasm(path: String) {
     let mut config = config.with_host_memory(Arc::new(allocator));
     // let mut config = config.parallel_compilation(false);
     let mut config = config.memory_init_cow(true);
-
-    // set endianness
-    //let config = config.cranelift_endianness(wasmtime::Cranelift::default().endianness());
     
     // Create a new store
     let engine = wasmtime::Engine::new(&config).unwrap();
