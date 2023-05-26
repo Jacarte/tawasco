@@ -22,6 +22,7 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
 
 - [`host_based`](/host_based): Contains the backend based architecture and the POCs for the attacks.
   - [`host`](/host_based/host): The host tool with wasmtime as the engine.
+  - [`host_sing;e`](/host_based/host_single): The host tool with wasmtime as the engine. Hooks added to filter non-Wasm traces with TracerPIN. Static and deterministic memory allocation for linear memory and executable memory.
   - [`rustctre`](/host_based/rustctre): The POCs for the attacks. We implement the POCs in Rust and we compile them to Wasm binaries.
     - [`cache_time_predictor.rs`](/host_based/rustctre/src/cache_time_predictor.rs): The cache miss/hit time predictor.
     - [`eviction.rs`](/host_based/rustctre/src/eviction.rs): The cache timing attack. This simple POC [just explicitly evicts](https://github.com/Jacarte/TAWasm/blob/420017590f641682defbf8114ffa881d984e7709/host_based/rustctre/src/eviction.rs#L87) the cache and measures the time to access the memory.
@@ -40,7 +41,8 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
    - [x] **C2**: Simple Spectre V1 in the same Wasm binary. See `host_based/rustctre/spectre_wasm.rs`
    - [ ] **C3**  : Exfitlrate from host engine. See `spectre_wasm_sync_simulated.rs`
    - [ ] **C4**  : Attacker and victim in different Wasm binaries.
-- [ ] Create automatic benchmark for measuring exfiltration accuracy
+- [ ] Test if precompiled Wasm files make a difference. 
+- [ ] Create automatic benchmark for measuring exfiltration accuracy.
 - [ ] Apply wasm-mutate to both, attacker or victim. Measure the impact on the accuracy of the attack.
 
 ## Roadmap browser
@@ -58,7 +60,9 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
 ## Roadmap mixed
 
 Questions:
-- Does it make sense as a use case to whitebox a Wasm ?
+- Does it make sense as a use case to whitebox a Wasm ? Yes, distributing a signed .wasm
+
+To reproduce this attacks and defenses. We propose to use a separated machine. For security and better measurements collection.
 
 - [ ] White box cryptography [challenges](https://github.com/SideChannelMarvels/Deadpool)
   - [ ] Compile C to Wasm
@@ -66,17 +70,19 @@ Questions:
     - [ ] Kryptologic
     - [ ] NSC2013
   - [ ] Perform attack
-    - [ ] Host based with wasmtime `wasmtime run wp.wasm`
-      - [ ] CHES2016
-        - [ ] DCA
-        - [ ] DFA
-      - [ ] Krypto
+    - [x] Host based with wasmtime
+      - [x] CHES2016
+        - [x] DCA. Running wasmtime precompiled wasm `host_single/release/host_single wb_challenge.wasm`
+        - Daredevil is able to exfiltrate the full key in around 5000 traces.
+        - Note: disable ASLR for better performance.
+        - The attack works only with PIN. It was easier for plotting and filtrating non-Wasm traces.
+      - [ ] Kryptologic
         - [ ] DCA
         - [ ] DFA
       - [ ] NSC2013
         - [ ] DCA
         - [ ] DFA
-    - [ ] Host based with V8
+    - [x] Host based with wasmtime
     - [ ] Browser based
 - [ ] Create automatic benchmark for measuring exfiltration accuracy
 - [ ] Apply wasm-mutate to both, attacker or victim. Measure the impact on the accuracy of the attack.
