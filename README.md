@@ -29,6 +29,7 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
     - [`spectre_wasm.rs`](/host_based/rustctre/src/spectre_wasm.rs): The Spectre V1 attack in the same Wasm binary.
     - [`spectre_wasm_sync_simulated.rs`](/host_based/rustctre/src/spectre_wasm_sync_simulated.rs): The Spectre V1 attack exfiltrating from the host. This assumes that the host contains secret values (TODO double check the assumptions of Swivel).
   - [`Makefile`](/host_based/Makefile): The Makefile to compile the Wasm POCs. The binaries can be compiled directly with `Cargo build --target=wasm32-wasi`, yet we do some processing for the binaries to collect some data.
+  - [`wasmtime`](/wasmtime): Our fork of wasmtime. We change the allocation (only in unix like OS) to be deterministic and handled in the embedding host. The linear memory can be handled by using the default wasmtime config. Yet, we also want to control where the executable memory is allocated.
 
 
 ## Roadmap host based:
