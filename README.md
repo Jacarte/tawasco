@@ -22,7 +22,7 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
 
 - [`host_based`](/host_based): Contains the backend based architecture and the POCs for the attacks.
   - [`host`](/host_based/host): The host tool with wasmtime as the engine.
-  - [`host_sing;e`](/host_based/host_single): The host tool with wasmtime as the engine. Hooks added to filter non-Wasm traces with TracerPIN. Static and deterministic memory allocation for linear memory and executable memory.
+  - [`host_single` (Linux only)](/host_based/host_single): The host tool with wasmtime as the engine. Hooks added to filter non-Wasm traces with TracerPIN. Static and deterministic memory allocation for linear memory and executable memory.
   - [`rustctre`](/host_based/rustctre): The POCs for the attacks. We implement the POCs in Rust and we compile them to Wasm binaries.
     - [`cache_time_predictor.rs`](/host_based/rustctre/src/cache_time_predictor.rs): The cache miss/hit time predictor.
     - [`eviction.rs`](/host_based/rustctre/src/eviction.rs): The cache timing attack. This simple POC [just explicitly evicts](https://github.com/Jacarte/TAWasm/blob/420017590f641682defbf8114ffa881d984e7709/host_based/rustctre/src/eviction.rs#L87) the cache and measures the time to access the memory.
