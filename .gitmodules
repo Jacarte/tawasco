@@ -1,3 +1,9 @@
 [submodule "wbc/deadpool"]
 	path = wbc/deadpool
 	url = git@github.com:Jacarte/Deadpool.git
+[submodule "wasmtime"]
+	path = wasmtime
+	url = https://github.com/Jacarte/wasmtime.git
+[submodule "Tracer"]
+	path = Tracer
+	url = https://github.com/Jacarte/Tracer.git
