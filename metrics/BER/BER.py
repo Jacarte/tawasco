@@ -16,21 +16,17 @@ def BER_OR_BITS(k1, proposals, mode = 'or'):
     #print(chains)
     #if mode == 'or':
     # Or over all bins in the same position for all the proposals
-    cumul = [0]*(len(chains[0]))
+    bitsk1 = get_bit_chain(k1)
+    CC = 0
     for i in range(len(chains[0])):
         for j in range(0, len(chains)):
-            cumul[i] = cumul[i] | int(chains[j][i], 2)
-        cumul[i] = bin(cumul[i])[2:].zfill(8)
-    
-    # Now count the number of different bits with k1
-    bitsk1 = get_bit_chain(k1)
-    cumul = [ int(cumul[i], 2) ^ int(bitsk1[i], 2) for i in range(len(cumul)) ]
-    # Count the number of 1s
-    cumul = [ bin(cumul[i])[2:].zfill(8).count('1') for i in range(len(cumul)) ]
-    cumul = sum(cumul)
+            C = int(chains[j][i], 2) ^ int(bitsk1[i], 2)
+            CC += bin(C)[2:].zfill(8).count('1')
+
+    cumul = CC
     # print(cumul)
     
-    total_bits = len(chains[0])*8
+    total_bits = len(chains[0])*8*len(chains)
 
     return cumul, total_bits
 
