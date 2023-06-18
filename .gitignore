@@ -10,3 +10,12 @@ samples.py
 __pycache__
 .vscode
 wasi-sdk
+mem_addr*
+mem_data*
+mem_stack*
+stack_*
+trace_stack*
+trace.*
+w.lock
+
+wbc
