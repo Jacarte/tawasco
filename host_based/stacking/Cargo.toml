@@ -1,0 +1,20 @@
+[package]
+name = "stacking"
+version = "0.0.1"
+publish = false
+description = "Stacking wasm-mutate transformation in the input wasm"
+edition = "2021"
+authors = ["Jacarte <jacarte9212@gmail.com>"]
+
+
+# wasmtime as a dep
+[dependencies]
+wasm-mutate = "0.2.27"
+env_logger = "0.9"
+itertools = "0.10.0"
+clap = { version = "4.0.0", features = ["derive"] }
+log = "0.4.17"
+anyhow = "1.0.58"
+rand = { version = "0.8.4", features = ["small_rng"] }
+blake3 = "1.2.0"
+sled = "0.34.7"
