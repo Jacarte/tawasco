@@ -76,7 +76,7 @@ RUN ~/.cargo/bin/rustup default nightly
 RUN ~/.cargo/bin/rustup target add wasm32-wasi
 RUN apt-get install -y make cmake
 WORKDIR /host_based/rustctre
-RUN make wasm
+# RUN make wasm
 
 
 RUN ~/.cargo/bin/rustup default stable
@@ -120,7 +120,7 @@ RUN make install
 # Install the wasm_evasion tools from the evasion paper
 RUN git clone --recursive https://github.com/ASSERT-KTH/wasm_evasion.git /wasm_evasion
 WORKDIR /wasm_evasion/crates/evasor
-RUN ~/.cargo/bin/cargo build --release --features wasm-mutate/all
+RUN ~/.cargo/bin/cargo +nightly build --release --features wasm-mutate/all
 RUN cp target/release/evasor /usr/local/bin/
 
 WORKDIR /

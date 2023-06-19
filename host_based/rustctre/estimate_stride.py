@@ -10,9 +10,11 @@ def BER(k1, k2):
             MISS += 1
     return MISS / len(k1), MISS
 
-def estimate_stride_size(f):
+
+def estimate_stride_size(f, sizes = []):
     # read the file
-    sizes = [ 256, 512, 1024, 2048, 4096, 2*4096, 4*4096, 8*4096, 16*4096, 32*4096, 64*4096, 128*4096, 256*4096, 512*4096, 1024*4096, 2048*4096, 4096*4096]
+    if not sizes:
+        sizes = [ 256, 512, 1024, 2048, 4096, 2*4096]
     
     for s in sizes:
         NEWFILE = []
@@ -42,7 +44,7 @@ def estimate_stride_size(f):
 
         # execute the eviction bin
         AVG = 0
-        for t in [1000, 2000,3000, 5000,10000, 20000, 40000, 60000, 100000]:
+        for t in [1000]:
 
             for j in range(10):
                 ch = subprocess.run(['./target/release/eviction'], stdout=subprocess.PIPE, env = {

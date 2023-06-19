@@ -30,8 +30,8 @@ pub static mut exfiltrated: Vec<u8> = vec![];
 
 static mut NEWMEMCOUNT: u32 = 0;
 const SCALE: usize = 1;
-static mut STATIC_ADDRESS_START: *mut c_void = 0x2000_0000 as *mut c_void;
-static mut STATIC_ADDRESS: *mut c_void = 0x2000_0000 as *mut c_void;
+static mut STATIC_ADDRESS_START: *mut c_void = 0x3000_0000 as *mut c_void;
+static mut STATIC_ADDRESS: *mut c_void = 0x3000_0000 as *mut c_void;
 static mut STATIC_ADDRESS2: *mut c_void = 0x1000_0000 as *mut c_void;
 // Allocate SECRET 
 
@@ -150,7 +150,7 @@ pub fn custom_reserve(size: usize) -> *mut libc::c_void {
             STATIC_ADDRESS,
             size,
             rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
-            rustix::mm::MapFlags::PRIVATE | rustix::mm::MapFlags::FIXED,
+            rustix::mm::MapFlags::PRIVATE //| rustix::mm::MapFlags::FIXED,
         ).expect("Memory could not be allocated");
         STATIC_ADDRESS = STATIC_ADDRESS.add(size + PAD);
         r
@@ -310,7 +310,9 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
             |mut caller: wasmtime::Caller<'_, _>, i: u32| {
 
                 // Trace where this is happening
-                unsafe {set_lock(0)};
+                #[cfg(feature="traces")]{
+                    unsafe {set_lock(0)};
+                }
 
                 // get the memory of the module
                 // In theory it should be our own allocation
@@ -328,7 +330,9 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
                     tmp &= read_memory_offset(addr);
                 };
 
-                unsafe {set_lock(1)};
+                #[cfg(feature="traces")]{
+                    unsafe {set_lock(1)};
+                }
 
                 //}
             },
@@ -434,12 +438,13 @@ pub fn execute_wasm(path: String) {
 pub fn main() {
 
     // Allocate the SECRET at the side of the Wasm memory for better accuracy
+    
     let ptr = unsafe {
         let r = rustix::mm::mmap_anonymous(
             STATIC_ADDRESS,
             11,
             rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
-            rustix::mm::MapFlags::PRIVATE | rustix::mm::MapFlags::FIXED,
+            rustix::mm::MapFlags::PRIVATE //| rustix::mm::MapFlags::FIXED,
         ).expect("Memory could not be allocated");
         STATIC_ADDRESS = STATIC_ADDRESS.add(11 + PAD);
       
@@ -456,15 +461,17 @@ pub fn main() {
         ptr[8] = b'o' ;
         ptr[9] = b'r' ;
         ptr[10] = b'd' ;
-        eprintln!("Setting the secret data");
+        eprintln!("Setting the secret data {:x}", r as u64);
 
         r
     };
     eprintln!("Secret data done");
 
-    unsafe { create_lock() };
-    // Creates a lock file here
-    unsafe {set_lock(1)};
+    #[cfg(feature="traces")]{
+        unsafe { create_lock() };
+        // Creates a lock file here
+        unsafe {set_lock(1)};
+    }
 
     // Setting up the data
     unsafe {
@@ -495,63 +502,86 @@ pub fn main() {
     // TODO share the linker
 
     // let mut threads = vec![];
-    println!("-> Type a token to command");
-    print!("-> ");
-    std::io::stdout().flush().unwrap();
-    loop {
-        // Read the command line
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).unwrap();
-        println!("-> Processing command '{}'", input.trim());
-        print!("\r-> ");
+    #[cfg(feature = "interactive")]
+    {
+        println!("-> Type a token to command");
+        print!("-> ");
         std::io::stdout().flush().unwrap();
-        // Flush std
-        if input.trim() == "execute" {
-            println!("   Type the number of times to execute");
+        loop {
+            // Read the command line
             let mut input = String::new();
-            // Read the next line to get the number of times to execute
             std::io::stdin().read_line(&mut input).unwrap();
-            let inputcp = input.clone();
-            let times = inputcp.trim().parse::<u32>().unwrap();
-            println!("   Type the path of the file to execute");
-            let mut input = String::new();
+            println!("-> Processing command '{}'", input.trim());
+            print!("\r-> ");
+            std::io::stdout().flush().unwrap();
+            // Flush std
+            if input.trim() == "execute" {
+                println!("   Type the number of times to execute");
+                let mut input = String::new();
+                // Read the next line to get the number of times to execute
+                std::io::stdin().read_line(&mut input).unwrap();
+                let inputcp = input.clone();
+                let times = inputcp.trim().parse::<u32>().unwrap();
+                println!("   Type the path of the file to execute");
+                let mut input = String::new();
 
-            // Read the next line to get the filename path of the file to execute
-            std::io::stdin().read_line(&mut input).unwrap();
+                // Read the next line to get the filename path of the file to execute
+                std::io::stdin().read_line(&mut input).unwrap();
 
-            // Discard last character which is the endline
+                // Discard last character which is the endline
 
-            let inputcp = input.clone();
-            let path = String::from(inputcp.trim());
+                let inputcp = input.clone();
+                let path = String::from(inputcp.trim());
 
-            /*let job = std::thread::spawn(move || {
+                /*let job = std::thread::spawn(move || {
+                    for i in 0..times {
+                        println!("   {}", i);
+                        execute_wasm(path.clone());
+                    }
+                });
+                threads.push(job);*/
+                // Launch the thread to execute
                 for i in 0..times {
                     println!("   {}", i);
                     execute_wasm(path.clone());
                 }
-            });
-            threads.push(job);*/
-            // Launch the thread to execute
-            for i in 0..times {
-                println!("   {}", i);
-                execute_wasm(path.clone());
-            }
 
-            println!("-> Executing '{}' into a separated thread", input.trim());
-            print!("\r-> ");
-            break;
-            std::io::stdout().flush().unwrap();
-        } else if input.trim() == "exit" {
-            // Wait for all threads, and the exit
-            println!("-> Waiting for pending threads");
-            //for t in threads {
-            //    t.join().unwrap();
-            //}
-            break;
-        } else {
-            eprintln!("-> Invalid command '{}' ", input.trim());
-            print!("\r-> ");
-            std::io::stdout().flush().unwrap();
+                println!("-> Executing '{}' into a separated thread", input.trim());
+                print!("\r-> ");
+                break;
+                std::io::stdout().flush().unwrap();
+            } else if input.trim() == "exit" {
+                // Wait for all threads, and the exit
+                println!("-> Waiting for pending threads");
+                //for t in threads {
+                //    t.join().unwrap();
+                //}
+                break;
+            } else {
+                eprintln!("-> Invalid command '{}' ", input.trim());
+                print!("\r-> ");
+                std::io::stdout().flush().unwrap();
+            }
+        }
+    }
+
+    #[cfg(not(feature="interactive"))]{
+        println!("Non interactive mode. Executing each passed binary in parallel.");
+        
+        // Execute each binary passed in parallel
+        let mut threads = vec![];
+        for i in 1..args.len() {
+            let path = args[i].clone();
+            let job = std::thread::spawn(move || {
+                execute_wasm(path.clone());
+            });
+            threads.push(job);
+        }
+
+        // Wait for all threads, and the exit
+        println!("-> Waiting for pending threads");
+        for t in threads {
+            t.join().unwrap();
         }
     }
 }

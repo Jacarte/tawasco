@@ -9,7 +9,7 @@ use std::arch::x86_64::_mm_mfence;
 
 // The comments are used to guide the autmatic estimation script
 //////// STRIDE SIZE START
-pub const STRIDE: usize = 128;
+pub const STRIDE: usize = 512;
 /////// STRIDE SIZE END
 
 static mut tmp: u8 = 0;

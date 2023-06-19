@@ -2,7 +2,7 @@ use anyhow::Context;
 use clap::Parser;
 use core::sync::atomic::Ordering::{Relaxed, SeqCst};
 use rand::Rng;
-use rand::{rngs::SmallRng, SeeadableRng};
+use rand::rngs::SmallRng;
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsStr;
 use std::fmt::Display;
@@ -18,6 +18,8 @@ use std::collections::HashSet;
 use std::borrow::BorrowMut;
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
+use rand::SeedableRng;
+
 /// # Stacking for wasm-mutate.
 ///
 /// ## Example
@@ -79,7 +81,6 @@ impl Stacking {
             count,
             rnd: SmallRng::seed_from_u64(seed),
             // Set the cache size to 3GB
-
             hashes: config.open().expect("Could not create external cache"),
         }
     }
