@@ -120,7 +120,7 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE], tries: 
 
         cache_miss += end;
 
-        #[cfg(feature = "tracing")]{
+        #[cfg(feature = "tracing_hit")]{
             println!("miss.append({})", end);
         }
 
@@ -132,7 +132,7 @@ pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE], tries: 
             };
             cache_hit += end;
 
-            #[cfg(feature = "tracing")]{
+            #[cfg(feature = "tracing_hit")]{
                 println!("hit.append({})", end);
             }
         }

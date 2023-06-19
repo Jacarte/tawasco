@@ -13,10 +13,10 @@ use std::arch::x86_64::_rdtsc;
 const THRESHOLD: u64 = 80;
 const STRIDE: usize = 512;
 
-const data_size: usize = 11;
-static mut public_data: [u8; 160] = [2; 160];
+const data_size: usize = 160;
 
 const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
+static mut public_data: [u8; 160] = [2; 160];
 const secret_data: &str = "My password";
 
 // To avoid optimization of the victim code
@@ -25,12 +25,12 @@ static mut tmp: u8 = 0;
 #[no_mangle]
 #[allow(dead_code)]
 fn victim_code(branch_selector: usize) {
-    let secret_data_bytes = secret_data.as_bytes();
+    let secret_data_bytes = &public_data;
 
     if branch_selector < data_size {
         // tmp is mut static which means that its mutability is rule by unsafe blocks :"
         unsafe {
-            let addr = &array_for_prediction[secret_data_bytes[branch_selector] as usize * STRIDE]
+            let addr = &array_for_prediction[public_data[branch_selector] as usize * STRIDE]
                 as *const u8;
             tmp &= read_memory_offset(addr);
         }

