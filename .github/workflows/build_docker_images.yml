@@ -1,6 +1,9 @@
 name: Build docker evasor
 # This workflow is triggered on pushes to the repository.
 on:
+  release:
+    # On each release
+    types: [published]
   push:
     branches:
       - main
@@ -49,6 +52,29 @@ jobs:
         run: |
           git_hash=$(git rev-parse --short HEAD)
           docker login -u="$user" -p="$pass" &&  docker push jacarte/wm-image:$git_hash
+        env:
+          user: ${{secrets.DOCKER_USER}}
+          pass: ${{secrets.DOCKER_PASS}}
+
+  build_release:
+    name: Build docker release tag
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'true'
+      
+
+      
+      - name: Build docker image ref
+        run: |
+          docker build -t jacarte/wm-image:${{ github.event.release.tag_name }} -f Dockerfile .
+
+      - name: Push images
+        run: |
+          docker login -u="$user" -p="$pass" &&  docker push jacarte/wm-image:${{ github.event.release.tag_name }}
         env:
           user: ${{secrets.DOCKER_USER}}
           pass: ${{secrets.DOCKER_PASS}}

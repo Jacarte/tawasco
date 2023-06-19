@@ -5,8 +5,8 @@ import os
 import re
 
 DIRNAME = os.path.abspath(os.path.dirname(__file__))
-# WASMTIME = os.environ.get('WASMTIME', 'wasmtime')
-WASMTIME = "/home/jacarte/Documents/side/tawasco/host_based/host_single/target/release/host_single"
+WASMTIME = os.environ.get('WASMTIME', 'wasmtime')
+# WASMTIME = "/home/jacarte/Documents/side/tawasco/host_based/host_single/target/release/host_single"
 
 sys.path.insert(0, os.path.join(DIRNAME, '../deadpool'))
 from deadpool_dca import *
