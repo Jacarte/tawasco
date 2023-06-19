@@ -28,6 +28,16 @@ pub fn main() {
         public_data[14] = 15;
         public_data[15] = 16;
     }
-    let (cache_hit, cache_miss) = reproduction::get_cache_time(&ARRAY_FOR_PREDICTION);
-    println!("{} {}", cache_hit, cache_miss);
+
+    
+    #[cfg(feature = "tracing")]
+    {
+        for i in 0..500 {
+            let (cache_hit, cache_miss) = reproduction::get_cache_time(&ARRAY_FOR_PREDICTION, 100);
+        }
+    }
+    #[cfg(not(feature = "tracing"))]{
+        let (cache_hit, cache_miss) = reproduction::get_cache_time(&ARRAY_FOR_PREDICTION, 3000000);
+        println!("{} {}", cache_hit, cache_miss);
+    }
 }

@@ -7,7 +7,7 @@ use std::arch::x86_64::_mm_clflush;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
 #[cfg(all(target_arch = "x86_64"))]
-use std::arch::x86_64::_rdtsc;
+use crate::_rdtsc;
 use std::io::Write;
 // In case of wasm target, then this is imported from the host
 // Set the host name as wasi
@@ -205,7 +205,7 @@ pub fn main() {
     }
 
     for j in 0..11 {
-        let (hit, miss) = reproduction::get_cache_time(&array_for_prediction);
+        let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 1000000);
         let (score, value) = read_memory_byte(j, hit, miss);
         // get value 0 as char
         let ch = value[0] as u8 as char;

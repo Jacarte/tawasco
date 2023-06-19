@@ -2,7 +2,7 @@ use anyhow::Context;
 use clap::Parser;
 use core::sync::atomic::Ordering::{Relaxed, SeqCst};
 use rand::Rng;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, SeeadableRng};
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsStr;
 use std::fmt::Display;
@@ -18,7 +18,6 @@ use std::collections::HashSet;
 use std::borrow::BorrowMut;
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
-
 /// # Stacking for wasm-mutate.
 ///
 /// ## Example
@@ -69,12 +68,19 @@ impl Stacking {
         if remove_cache {
             std::fs::remove_dir_all(&cache_dir.clone());
         }
+
+        let config = sled::Config::default()
+            .path(cache_dir.clone().to_owned())
+            .cache_capacity(/* 4Gb */ 4 * 1024 * 1024 * 1024);
+
         Self {
             current,
             index: 0,
             count,
             rnd: SmallRng::seed_from_u64(seed),
-            hashes: sled::Db::open(&cache_dir.clone()).expect("Could not create external cache"),
+            // Set the cache size to 3GB
+
+            hashes: config.open().expect("Could not create external cache"),
         }
     }
 
@@ -88,7 +94,7 @@ impl Stacking {
 
         let seed = self.rnd.gen();
         eprintln!("Seed {}", seed);
-        let wasmmutate = wasmmutate.seed(seed);
+        let mut wasmmutate = wasmmutate.seed(seed);
         let cp = self.current.clone();
         let wasm = wasmmutate.run(&cp);
 
@@ -110,6 +116,7 @@ impl Stacking {
                             if let Ok(true) = self.hashes.contains_key(&hash) {
                                 // eprintln!("Already contained");
                                 // We already generated this hash, so we skip it
+
                                 continue;
                             }
 

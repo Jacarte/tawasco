@@ -7,3 +7,6 @@
 [submodule "Tracer"]
 	path = Tracer
 	url = https://github.com/Jacarte/Tracer.git
+[submodule "wasm_evasion"]
+	path = wasm_evasion
+	url = https://github.com/ASSERT-KTH/wasm_evasion

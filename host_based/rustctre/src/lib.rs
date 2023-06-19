@@ -6,13 +6,36 @@ use std::arch::asm;
 use std::arch::x86_64::_mm_clflush;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
-#[cfg(all(target_arch = "x86_64"))]
-use std::arch::x86_64::_rdtsc;
 
-// 256
-pub const STRIDE: usize = 256;
+// The comments are used to guide the autmatic estimation script
+//////// STRIDE SIZE START
+pub const STRIDE: usize = 128;
+/////// STRIDE SIZE END
 
 static mut tmp: u8 = 0;
+
+#[cfg(all(target_arch="x86_64"))]
+pub fn _rdtsc() -> u64 {
+    let eax: u32;
+  let ecx: u32;
+  let edx: u32;
+  {
+    unsafe {
+      asm!(
+        "rdtscp",
+        lateout("eax") eax,
+        lateout("ecx") ecx,
+        lateout("edx") edx,
+        options(nomem, nostack)
+      );
+    }
+  }
+
+
+  let counter: u64 = (edx as u64) << 32 | eax as u64;
+  counter
+}
+
 
 #[cfg(all(target_arch = "x86_64"))]
 pub fn read_memory_offset(ptr: *const u8) -> u8 {
@@ -38,11 +61,11 @@ pub fn read_memory_offset(ptr: *const u8) -> u8 {
             // Push the ptr in the stack
             "local.get {}",
             "i32.load8_u 0",
-            //"drop",
+            "drop",
             //"i32.load8_u",
-            "local.set {}",
+            //"local.set {}",
             in(local) ptr,
-            lateout(local) result,
+            //lateout(local) result,
             //result = out(reg_byte) _
             options(nostack),
 
@@ -64,61 +87,69 @@ extern "C" {
 #[no_mangle]
 #[allow(dead_code)]
 /// Calculates the cache hit and miss time
-pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE]) -> (u64, u64) {
+pub fn get_cache_time(array_for_prediction: &'static [u8; 256 * STRIDE], tries: u64) -> (u64, u64) {
     let mut cache_hit = 0;
     let mut cache_miss = 0;
 
-    let mut cache_hit_count = 0;
-    let mut cache_miss_count = 0;
     // Get the TRIES from env
-    let tries = 2000;
+    for k in 0..10 {
+        let j = 1;
 
-    for i in 0..tries {
-        // TODO watch out for the optimization of this empty loop
+        #[cfg(all(target_arch = "x86_64"))]
+        unsafe {
+            _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
+        }
+        #[cfg(all(target_arch = "wasm32"))]
+        unsafe {
+            _mm_clflush((j * STRIDE) as *const u8);
+        }
+        
+        // TODO watch out for the optimization of this empty loop            
         unsafe {
             _mm_mfence();
         }
+        let addr = &array_for_prediction[j * STRIDE as usize] as *const u8;
+        // let start = unsafe { _rdtsc() };
+        // Read the mem addr
+        let end = unsafe {
+            let start = _rdtsc();
+            tmp &= read_memory_offset(addr);
+            _rdtsc() - start
+        };
 
-        // PRIME
-        for j in 0..256 {
-            #[cfg(all(target_arch = "x86_64"))]
-            unsafe {
-                _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
-            }
-            #[cfg(all(target_arch = "wasm32"))]
-            unsafe {
-                _mm_clflush((j * STRIDE) as *const u8);
-            }
+        cache_miss += end;
 
-            // for _ in 0..1000 {}
-            // TODO watch out for the optimization of this empty loop
-            unsafe {
-                _mm_mfence();
-            }
+        #[cfg(feature = "tracing")]{
+            println!("miss.append({})", end);
+        }
 
-            for x in 0..20 {
-                let addr = &array_for_prediction[j * STRIDE as usize] as *const u8;
-                // let start = unsafe { _rdtsc() };
-                // Read the mem addr
-                let end = unsafe {
-                    let start = _rdtsc();
-                    tmp &= read_memory_offset(addr);
-                    _rdtsc() - start
-                };
-                // First access is slow
-                if x == 0 {
-                    cache_miss += end;
-                    cache_miss_count += 1;
-                } else
-                /* discard the first 3 calls*/
-                {
-                    cache_hit += end;
-                    cache_hit_count += 1;
-                }
+        for x in 0..tries {
+            let end = unsafe {
+                let start = _rdtsc();
+                tmp &= read_memory_offset(addr);
+                _rdtsc() - start
+            };
+            cache_hit += end;
+
+            #[cfg(feature = "tracing")]{
+                println!("hit.append({})", end);
             }
         }
-    }
 
+        #[cfg(all(target_arch = "x86_64"))]
+        unsafe {
+            _mm_clflush(&array_for_prediction[j * STRIDE] as *const u8);
+        }
+        #[cfg(all(target_arch = "wasm32"))]
+        unsafe {
+            _mm_clflush((j * STRIDE) as *const u8);
+        }
+
+        unsafe {
+            _mm_mfence();
+        }
+    }
     //println!(" >");
-    (cache_hit / cache_hit_count, cache_miss / cache_miss_count)
+    // println!("{}", (90*cache_hit/tries + 10*cache_miss)/100);
+    (cache_hit /(10* tries), cache_miss/10 )
 }

@@ -43,7 +43,8 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
    - [x] **C2**: Simple Spectre V1 in the same Wasm binary. See `host_based/rustctre/spectre_wasm.rs`
    - [ ] **C3**  : Exfitlrate from host engine. See `spectre_wasm_sync_simulated.rs`
    - [ ] **C4**  : Attacker and victim in different Wasm binaries.
-- [ ] Test if precompiled Wasm files make a difference. 
+- [x] Test if precompiled Wasm files make a difference. 
+  - They do, at least in execution time when we autmatically test the accuracy
 - [ ] Create automatic benchmark for measuring exfiltration accuracy.
 - [ ] Apply wasm-mutate to both, attacker or victim. Measure the impact on the accuracy of the attack.
 
@@ -56,7 +57,7 @@ The backend based architecture is based on the wasmtime engine. The [`host`](/ho
     - [ ] Create native binary that makes port contention.
     - [ ] Measures port contention in the browser.
   - [ ] Create automatic benchmark for measuring predictor accuracy.
-  - [ ] Apply wasm-mutate. Measure the impact on the accuracy of the predictor.
+  - [ ] Apply wasm-mutate to the port predictor and the listener. Measure the impact on the accuracy of the predictor.
 
 
 ## Roadmap mixed
@@ -67,24 +68,15 @@ Questions:
 To reproduce this attacks and defenses. We propose to use a separated machine. For security and better measurements collection.
 
 - [ ] White box cryptography [challenges](https://github.com/SideChannelMarvels/Deadpool)
-  - [ ] Compile C to Wasm
+  - [x] Compile C to Wasm
     - [x] CHES2016
-    - [ ] Kryptologic
-    - [ ] NSC2013
-  - [ ] Perform attack
+  - [x] Perform attack
     - [x] Host based with wasmtime
       - [x] CHES2016
         - [x] DCA. Running wasmtime precompiled wasm `host_single/release/host_single wb_challenge.wasm`
         - Daredevil is able to exfiltrate the full key in around 5000 traces.
         - Note: disable ASLR for better performance.
         - The attack works only with PIN. It was easier for plotting and filtrating non-Wasm traces.
-      - [ ] Kryptologic
-        - [ ] DCA
-        - [ ] DFA
-      - [ ] NSC2013
-        - [ ] DCA
-        - [ ] DFA
     - [x] Host based with wasmtime
-    - [ ] Browser based
 - [ ] Create automatic benchmark for measuring exfiltration accuracy
-- [ ] Apply wasm-mutate to both, attacker or victim. Measure the impact on the accuracy of the attack.
+- [ ] Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack.

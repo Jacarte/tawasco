@@ -1,18 +1,14 @@
 
-
 #include <stddef.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
 
-// TODO make this a parameter
 #define SHARED_MEMORY_KEY 1234
-
 typedef struct {
     // Define your shared data variables here
     char lock;
 } SharedLock;
-
 
 SharedLock* sharedVal;
 

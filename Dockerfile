@@ -1,5 +1,7 @@
 FROM ubuntu:20.04 as builder
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install packages
 RUN apt-get update  && apt-get -y upgrade
 RUN apt-get install -y wget curl
@@ -36,7 +38,7 @@ RUN bash /download_wasi.sh
 
 # Install wasmtime
 # Copy our version of wasmtime :)
-RUN curl https://wasmtime.dev/install.sh -sSf | bash
+# RUN curl https://wasmtime.dev/install.sh -sSf | bash
 RUN ~/.cargo/bin/rustup target add wasm32-wasi
 
 # Install valgrind headers
@@ -58,6 +60,16 @@ RUN cp target/release/stacking /usr/local/bin/
 WORKDIR /host_based/host_single
 RUN ~/.cargo/bin/cargo build --release
 RUN cp target/release/host_single /usr/local/bin/
+
+RUN apt-get install -y git
+RUN git clone --recursive https://github.com/Jacarte/wasmtime.git /wasmtime_upstream
+WORKDIR /wasmtime_upstream
+RUN git reset --hard 20c58362959562627b93bfb9f15423ef0d4f4376
+RUN ~/.cargo/bin/cargo build --release
+RUN cp target/release/wasmtime /usr/local/bin/
+# RUN rm -rf /wasmtime_upstream
+
+WORKDIR /
 
 RUN ~/.cargo/bin/rustup target add wasm32-wasi
 RUN ~/.cargo/bin/rustup default nightly
@@ -97,15 +109,24 @@ WORKDIR /Daredevil
 RUN make
 RUN make install
 
-# Instaal binaryen
-RUN git clone --recursive https://github.com/WebAssembly/binaryen.git
+# Install binaryen
+RUN git clone --recursive https://github.com/WebAssembly/binaryen.git /binaryen
 WORKDIR /binaryen
-RUN git submodule init
-RUN git submodule update
+# RUN git submodule init
+# RUN git submodule update
 RUN cmake . && make
 RUN make install
 
+# Install the wasm_evasion tools from the evasion paper
+RUN git clone --recursive https://github.com/ASSERT-KTH/wasm_evasion.git /wasm_evasion
+WORKDIR /wasm_evasion/crates/evasor
+RUN ~/.cargo/bin/cargo build --release --features wasm-mutate/all
+RUN cp target/release/evasor /usr/local/bin/
+
 WORKDIR /
+
+# Remove source folders
+RUN rm -rf /wasm_evasion
 
 # Copy from previous image
 # COPY --from=builder /go/src/github.com/alexellis/href-counter/app ./
