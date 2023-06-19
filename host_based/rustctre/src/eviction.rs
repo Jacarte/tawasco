@@ -192,7 +192,7 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction, 100000000);
+    let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction, 100_000_000);
     
     for j in 0..11 {
         unsafe {

@@ -14,10 +14,12 @@ wasm:
 	 cp target/wasm32-wasi/release/sp.wasm out/sp.wasm
 	 cp target/wasm32-wasi/release/sp_sync.wasm out/sp_sync.wasm
 	 cp target/wasm32-wasi/release/cache_time.wasm out/cache_time.wasm
+	 cp target/wasm32-wasi/release/victim.wasm out/victim.wasm
 
 
 	# cargo +nightly build --release --target=wasm32-wasi --no-default-features
-	${WASM2WAT} target/wasm32-wasi/release/eviction.wasm -o target/wasm32-wasi/release/eviction.wat
+	${WASM2WAT} target/wasm32-wasi/release/eviction.wasm --enable-all -o target/wasm32-wasi/release/eviction.wat
+	${WASM2WAT} target/wasm32-wasi/release/victim.wasm --enable-all -o target/wasm32-wasi/release/victim.wat
 	# for debugging, create the wat format
 
 # TODO make one for V8

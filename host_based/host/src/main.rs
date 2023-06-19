@@ -1,3 +1,4 @@
+
 use std::arch::asm;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_clflush;
@@ -10,10 +11,12 @@ use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::Condvar;
 use std::ops::Range;
 use std::ffi::c_void;
 
 const STRIDE: usize = 256;
+// Make this seteable to infer the BEST PAD size
 const PAD: usize = 160;
 
 const data_size: usize = 11;
@@ -33,7 +36,11 @@ const SCALE: usize = 1;
 static mut STATIC_ADDRESS_START: *mut c_void = 0x3000_0000 as *mut c_void;
 static mut STATIC_ADDRESS: *mut c_void = 0x3000_0000 as *mut c_void;
 static mut STATIC_ADDRESS2: *mut c_void = 0x1000_0000 as *mut c_void;
-// Allocate SECRET 
+static mut ACCESS_INDEX: u64 = 0;
+
+lazy_static::lazy_static! {
+    static ref ping_lock: Arc<(Mutex<bool>, Condvar)> = Arc::new((Mutex::new(false), Condvar::new()));
+}
 
 
 
@@ -97,7 +104,7 @@ unsafe impl wasmtime::MemoryCreator for MemoryAllocator {
         // * WASM_PAGE_SIZE
         // To shrink the allocated memory for the binary just set the number below to 0.5 for example
         // TODO make this and option
-        let PSIZE: f32 = 0.01;
+        let PSIZE: f32 = 1.0;
         let total_bytes = match maximum {
             Some(max) => (max as f32 *PSIZE) as usize,
             None => (minimum as f32*PSIZE) as usize,
@@ -284,6 +291,41 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
         })
         .unwrap();
 
+    let pair = Arc::clone(&ping_lock);
+    let pair2 = Arc::clone(&ping_lock);
+    let pair3 = Arc::clone(&ping_lock);
+
+    let linker = linker
+        .func_wrap("env", "ping",  move |_caller: wasmtime::Caller<'_, _>| unsafe {
+            // Waiting for the lock here
+            
+            let (lock, cvar) = &*pair;
+            let mut free = lock.lock().unwrap();
+
+            //eprintln!("Waiting for lock");
+            //while !*free {
+            cvar.wait(free).unwrap();
+            //}
+            //eprintln!("Returning from ping");
+            // Block here until victim code function is called
+            unsafe {
+                ACCESS_INDEX
+            }
+        })
+        .unwrap();
+
+
+        let linker = linker
+        .func_wrap("env", "pong",  move |_caller: wasmtime::Caller<'_, _>| unsafe {
+            // Setting the lock
+            let (lock, cvar) = &*pair3;
+            let mut started = lock.lock().unwrap();
+            *started = false;
+            // We notify the condvar that the value has changed.
+            cvar.notify_one();
+        })
+        .unwrap();
+
     let linker = linker
         .func_wrap(
             "env",
@@ -307,28 +349,27 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
         .func_wrap(
             "env",
             "victim_code",
-            |mut caller: wasmtime::Caller<'_, _>, i: u32| {
+            move |mut caller: wasmtime::Caller<'_, _>, i: u32| {
 
                 // Trace where this is happening
                 #[cfg(feature="traces")]{
                     unsafe {set_lock(0)};
                 }
 
-                // get the memory of the module
-                // In theory it should be our own allocation
-                let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
-                let memory_data = memory.data(&mut caller);
-
-                let location = i as usize;
-                //if location < data_size {
+                // Here we unlock the ping call and we set the index
                 unsafe {
-                    let addr =
-                        &memory_data[secret_data_bytes[location] as usize * STRIDE] as *const u8;
-                    // lets print the address for logging
-                    //println!("access {:?}", addr);
+                    ACCESS_INDEX = i as u64;
+                }
 
-                    tmp &= read_memory_offset(addr);
-                };
+                //eprintln!("Unlocking");
+                // Unlocking the mutex
+                let (lock, cvar) = &*pair2;
+                let mut started = lock.lock().unwrap();
+                *started = true;
+                // We notify the condvar that the value has changed.
+                cvar.notify_one();
+
+                //eprintln!("Unlock");
 
                 #[cfg(feature="traces")]{
                     unsafe {set_lock(1)};
@@ -432,40 +473,14 @@ pub fn execute_wasm(path: String) {
         .call(&mut store, ())
         .unwrap();
 
-    println!("-> Exeuting finished");
+    println!("-> Executing finished");
 }
 
 pub fn main() {
 
-    // Allocate the SECRET at the side of the Wasm memory for better accuracy
-    
-    let ptr = unsafe {
-        let r = rustix::mm::mmap_anonymous(
-            STATIC_ADDRESS,
-            11,
-            rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
-            rustix::mm::MapFlags::PRIVATE //| rustix::mm::MapFlags::FIXED,
-        ).expect("Memory could not be allocated");
-        STATIC_ADDRESS = STATIC_ADDRESS.add(11 + PAD);
-      
-        // Set the PTR content
-        let mut ptr = core::slice::from_raw_parts_mut(r as *mut u8, 11);
-        ptr[0] = b'M' ;
-        ptr[1] = b'y' ;
-        ptr[2] = b' ' ;
-        ptr[3] = b'p' ;
-        ptr[4] = b'a' ;
-        ptr[5] = b's' ;
-        ptr[6] = b's' ;
-        ptr[7] = b'w' ;
-        ptr[8] = b'o' ;
-        ptr[9] = b'r' ;
-        ptr[10] = b'd' ;
-        eprintln!("Setting the secret data {:x}", r as u64);
+    // Starting by locking
+    // let a = PING_LOCK;
 
-        r
-    };
-    eprintln!("Secret data done");
 
     #[cfg(feature="traces")]{
         unsafe { create_lock() };

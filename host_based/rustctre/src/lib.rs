@@ -53,6 +53,7 @@ pub fn read_memory_offset(ptr: *const u8) -> u8 {
 // TODO, drop to avoid time in assignment
 #[cfg(all(target_arch = "wasm32"))]
 #[no_mangle]
+#[inline]
 pub fn read_memory_offset(ptr: *const u8) -> u8 {
     let mut result = 0u8;
     //println!("Reading from memory");

@@ -32,6 +32,9 @@ name = "cache_time"
 path = "src/cache_time_predictor.rs"
 
 
+[[bin]]
+name = "victim"
+path = "src/victim.rs"
 
 
 #[[bin]]

