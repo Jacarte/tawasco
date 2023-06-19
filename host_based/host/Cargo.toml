@@ -9,9 +9,11 @@ authors = ["Jacarte <jacarte9212@gmail.com>"]
 
 # wasmtime as a dep
 [dependencies]
-wasmtime = "7.0.0"
-wasmtime-wasi = "7.0.0"
-wasmtime-jit = "7.0.0"
+wasmtime = { path = "../../wasmtime/crates/wasmtime" }
+wasmtime-wasi = { path = "../../wasmtime/crates/wasi" }
+wasmtime-jit = { path = "../../wasmtime/crates/jit" }
+libc = "0.2"
+rustix = "0.37.13"
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -21,3 +23,11 @@ criterion = "0.4.0"
 name = "eviction"
 harness = false
 
+
+[build-dependencies]
+cc = "1.0"
+
+[features]
+default = []
+# Interact with PIN to trace the execution of binaries
+traces = []
