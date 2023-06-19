@@ -11,13 +11,6 @@ In the following gif we show how the Spectre POC (in the same binary) works on e
 - Rust nightly. Install it with `rustup install nightly`. We need nightly beacuase we use some `asm!` experimental features to directly write Wasm code from Rust (see [How to deploy hand made Wasm code in Fastly Compute@Edge.](https://www.jacarte.me/blog/2021/HandMadeWasmDeploInFastly/))
 
 
-## Backend based architecture
-
-The backend based architecture is based on the wasmtime engine. The [`host`](/host_based/host) tool works as a cli. When it executes , it waits for the user to specify the Wasm to execute. Once receives it, the Wasm binary is compiled and executed in a separated thread. Thus, multiple Wasm binaries can be executed in parallel in somesort of CDN platform simulation.
-
-
-
-
 ## Repo structure
 
 - [`host_based`](/host_based): Contains the backend based architecture and the POCs for the attacks.
