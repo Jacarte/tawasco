@@ -9,7 +9,7 @@ authors = ["Jacarte <jacarte9212@gmail.com>"]
 
 # wasmtime as a dep
 [dependencies]
-wasm-mutate = "0.2.27"
+wasm-mutate = { path = "../../wasm-tools/crates/wasm-mutate", features = ['runtime-only'] }
 env_logger = "0.9"
 itertools = "0.10.0"
 clap = { version = "4.0.0", features = ["derive"] }

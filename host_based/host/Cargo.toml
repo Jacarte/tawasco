@@ -33,3 +33,6 @@ default = ["interactive"]
 # Interact with PIN to trace the execution of binaries
 traces = []
 interactive = []
+# Sequential to execute one after the other
+sequential = []
+parallel = []
