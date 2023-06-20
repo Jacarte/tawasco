@@ -110,6 +110,9 @@ jobs:
       - name: Install target
         run: rustup update && rustup target add wasm32-wasi wasm32-unknown-unknown ${{ matrix.target }}
 
+      - name: Install target nightly
+        run: rustup update nightly && rustup +nightly target add wasm32-wasi wasm32-unknown-unknown ${{ matrix.target }}
+
       # wasmtime-fiber and binaryen fail to compile without this
       - name: Install Aarch64 GCC toolchain
         run: sudo apt-get --assume-yes install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu || true
@@ -117,7 +120,7 @@ jobs:
 
 
       - name: Build CLI ${{ matrix.os }}
-        run: cd host_based/stacking && cargo build --release --target ${{ matrix.target }} ${{ matrix.features }}
+        run: cd host_based/stacking && cargo +nightly build --release --target ${{ matrix.target }} ${{ matrix.features }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
