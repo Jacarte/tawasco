@@ -34,7 +34,7 @@ jobs:
         include:
           - name: linux
             os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
-            path: wasmtime/target/x86_64-unknown-linux-gnu/release/stacking
+            path: wasmtime/target/x86_64-unknown-linux-gnu/release/wasmtime
             asset_name: wasmtime-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: x86_64-unknown-linux-gnu
@@ -46,7 +46,7 @@ jobs:
               # target: aarch64-unknown-linux-gnu
           - name: macos
             os: macos-latest
-            path:  wasmtime/target/x86_64-apple-darwin/release/stacking
+            path:  wasmtime/target/x86_64-apple-darwin/release/wasmtime
             asset_name: wasmtime-x86_64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
             target: x86_64-apple-darwin
@@ -77,7 +77,7 @@ jobs:
 
       - name: Build CLI ${{ matrix.os }}
         # We rollback the patch to the memory allocation
-        run: cd wasmtime && git submodule update --init && git reset --hard 20c58362959562627b93bfb9f15423ef0d4f4376 && cargo build --release --target ${{ matrix.target }}
+        run: cd wasmtime && git reset --hard 20c58362959562627b93bfb9f15423ef0d4f4376 && git submodule update --init  && cargo build --release --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
