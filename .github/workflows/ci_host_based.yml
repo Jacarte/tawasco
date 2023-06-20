@@ -73,7 +73,7 @@ jobs:
 
       # Should no-op except for macos-arm and linux-arm cases where that target won't be installed
       - name: Install target
-        run:  rustup update && rustup target add add wasm32-wasi wasm32-unknown-unknown ${{ matrix.target }}
+        run:  rustup update && rustup target add wasm32-wasi wasm32-unknown-unknown ${{ matrix.target }}
 
       # wasmtime-fiber and binaryen fail to compile without this
       - name: Install Aarch64 GCC toolchain
