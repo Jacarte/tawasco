@@ -1,4 +1,7 @@
+[![Build wasm-mutate runtime only](https://github.com/Jacarte/tawasco/actions/workflows/ci.yml/badge.svg)](https://github.com/Jacarte/tawasco/actions/workflows/ci.yml)
+
 # This repo contains cache-timing and side-channel based attacks for WebAssembly
+
 
 The idea is to have POC for attacks on the two Wasm execution scenarios: in the browser and backend based. We code the attacks in Rust and we compile them to Wasm.
 
