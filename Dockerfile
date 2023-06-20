@@ -26,6 +26,7 @@ RUN curl https://sh.rustup.rs -sSf > rustup.sh
 RUN chmod 755 rustup.sh
 RUN ./rustup.sh -y
 RUN apt-get install -y gcc clang
+RUN ~/.cargo/bin/rustup update
 
 # Install wasm-tools
 RUN ~/.cargo/bin/cargo install wasm-tools
@@ -47,6 +48,7 @@ RUN ~/.cargo/bin/rustup target add wasm32-wasi
 # Copy from here, compile and save :|
 COPY host_based /host_based
 COPY wasmtime /wasmtime
+COPY wasm-tools /wasm-tools
 
 WORKDIR /host_based/host
 RUN ~/.cargo/bin/cargo build --release
@@ -65,6 +67,7 @@ RUN apt-get install -y git
 RUN git clone --recursive https://github.com/Jacarte/wasmtime.git /wasmtime_upstream
 WORKDIR /wasmtime_upstream
 RUN git reset --hard 20c58362959562627b93bfb9f15423ef0d4f4376
+RUN git submodule update --init
 RUN ~/.cargo/bin/cargo build --release
 RUN cp target/release/wasmtime /usr/local/bin/
 # RUN rm -rf /wasmtime_upstream
