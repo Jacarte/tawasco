@@ -82,7 +82,7 @@ jobs:
 
 
       - name: Build CLI ${{ matrix.os }}
-        run: cd host_based/stacking && cargo build --release --features sequential --target ${{ matrix.target }}
+        run: cd host_based/stacking && cargo build --release --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
