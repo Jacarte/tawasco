@@ -1,9 +1,10 @@
 docs/
-host_based/host/target
-host_based/host_single/target
-host_based/host_single/rustctre
+host_based/
 metrics/original*
 wasmtime/target
+wasm_evasion/
+wasmtime/
+wasm-tools/
 wasm_evasion/
 wbc/deadpool/wbs_*
 wbc/deadpool/ches2016/mem*
@@ -11,5 +12,3 @@ wbc/deadpool/ches2016/*.db
 wbc/krypto*
 wbc/mem_test
 wbc/nsc2013
-host_based/host_single/stacking/traces*
-host_based/*/target/
