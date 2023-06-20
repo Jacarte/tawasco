@@ -10,6 +10,9 @@ authors = ["Jacarte <jacarte9212@gmail.com>"]
 # wasmtime as a dep
 [dependencies]
 wasm-mutate = { path = "../../wasm-tools/crates/wasm-mutate", features = ['runtime-only', 'peephole-small'] }
+wasmtime = { git = "https://github.com/Jacarte/wasmtime", rev = "20c58362959562627b93bfb9f15423ef0d4f4376" }
+wasmtime-wasi = { git = "https://github.com/Jacarte/wasmtime", rev = "20c58362959562627b93bfb9f15423ef0d4f4376" }
+wasmtime-jit = { git = "https://github.com/Jacarte/wasmtime", rev = "20c58362959562627b93bfb9f15423ef0d4f4376" }
 env_logger = "0.9"
 itertools = "0.10.0"
 clap = { version = "4.0.0", features = ["derive"] }
@@ -18,3 +21,4 @@ anyhow = "1.0.58"
 rand = { version = "0.8.4", features = ["small_rng"] }
 blake3 = "1.2.0"
 sled = "0.34.7"
+thiserror = "1.0.28"

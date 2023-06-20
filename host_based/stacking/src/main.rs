@@ -39,11 +39,19 @@ struct Options {
     #[arg(short = 'v', long = "save", default_value = "10000")]
     step: usize,
     /// Cache folder name. The cache is used to void repeated transformations that are not interesting.
-    #[arg(long = "cache_folder", default_value = "cache")]
+    #[arg(long = "cache-folder", default_value = "cache")]
     cache_folder: String,
     /// Erase cache on start
-    #[arg(long = "remove_cache", default_value = "false")]
+    #[arg(long = "remove-cache", default_value = "false")]
     remove_cache: bool,
+
+    /// Do IO equivalence checking. The original and the variant will be executed and their result compared.
+    #[arg(long = "check-io", default_value = "false")]
+    check_io: bool,
+
+    /// IO check arguments. It will be for the original and the variant comparison if check_io is true.
+    #[arg(long = "check-args")]
+    check_args: Vec<String>,
 
     /// The output Wasm binary.
     output: PathBuf,
@@ -56,6 +64,8 @@ fn swap(current: &mut Vec<u8>,
 
 struct Stacking {
     current: Vec<u8>,
+    original: Vec<u8>,
+    check_args: Vec<String>,
     index: usize,
     count: usize,
     rnd: SmallRng,
@@ -65,7 +75,7 @@ struct Stacking {
 
 impl Stacking {
     
-    pub fn new(current: Vec<u8>, count: usize, seed: u64, remove_cache: bool, cache_dir: String) -> Self {
+    pub fn new(current: Vec<u8>, count: usize, seed: u64, remove_cache: bool, cache_dir: String, check_args: Vec<String>) -> Self {
         // Remove db if exist
         if remove_cache {
             std::fs::remove_dir_all(&cache_dir.clone());
@@ -76,7 +86,9 @@ impl Stacking {
             .cache_capacity(/* 4Gb */ 4 * 1024 * 1024 * 1024);
 
         Self {
+            original: current.clone(),
             current,
+            check_args,
             index: 0,
             count,
             rnd: SmallRng::seed_from_u64(seed),
@@ -123,7 +135,9 @@ impl Stacking {
 
                             self.hashes.insert(hash, b"1");
                             
-                            //orig = &b.clone();
+                            // Execute to see semantic equivalence
+                            eval::assert_same_evaluation(&self.original, &b, self.check_args.clone());
+
                             self.current = b.clone();
                             self.index += 1;
 
@@ -159,7 +173,7 @@ fn main() -> anyhow::Result<()> {
     // load the bytes from the input file
     let bytes = std::fs::read(&opts.input).context("Could not read the input file")?;
 
-    let mut stack = Stacking::new(bytes, opts.count, opts.seed, opts.remove_cache, opts.cache_folder);
+    let mut stack = Stacking::new(bytes, opts.count, opts.seed, opts.remove_cache, opts.cache_folder, opts.check_args);
 
     loop {
         stack.next();
@@ -182,4 +196,277 @@ fn main() -> anyhow::Result<()> {
     // Write the current to fs
     std::fs::write(&opts.output, stack.current).context("Could not write the output file")?;
     Ok(())
+}
+
+
+// Somesort of the same as wasm-mutate fuzz
+mod eval {
+
+    // ./target/release/stacking tests/wb_challenge.wasm stacking.sym --seed 100 -c 2 -v 1000 --check-args wb_challenge.wasm --check-args 00 --check-args 01 --check-args 02 --check-args 03 --check-args 04 --check-args 05 --check-args 06 --check-args 07 --check-args 08 --check-args 09 --check-args 0a --check-args 0b --check-args 0c --check-args 0d --check-args 0e --check-args 0f
+    use wasmtime_wasi::sync::WasiCtxBuilder;
+
+    fn get_current_working_dir() -> std::io::Result<std::path::PathBuf> {
+        std::env::current_dir()
+    }
+
+    /// Creates the WASI support
+    pub fn create_linker(engine: &wasmtime::Engine) -> wasmtime::Linker<wasmtime_wasi::WasiCtx> {
+        let mut linker = wasmtime::Linker::new(&engine);
+
+        wasmtime_wasi::add_to_linker(&mut linker, |s| s).unwrap();
+        // These methods are not in WASI by default, yet, let us assume they are
+        // It is the same assumption of Swivel
+        linker.clone()
+    }
+
+
+    /// Compile, instantiate, and evaluate both the original and mutated Wasm.
+    ///
+    /// We should get identical results because we told `wasm-mutate` to preserve
+    /// semantics.
+    pub fn assert_same_evaluation(wasm: &[u8], mutated_wasm: &[u8], args: Vec<String>) -> bool {
+        
+        // println!("Checking IO equivalence {:?}", args);
+
+        let mut config = wasmtime::Config::default();
+        config.cranelift_nan_canonicalization(true);
+        // config.consume_fuel(true);
+
+        let engine = wasmtime::Engine::new(&config).unwrap();
+
+        let (orig_module, mutated_module) = match (
+            wasmtime::Module::new(&engine, &wasm),
+            wasmtime::Module::new(&engine, &mutated_wasm),
+        ) {
+            (Ok(o), Ok(m)) => (o, m),
+            // Ideally we would assert that they both errored if either one did, but
+            // it is possible that a mutation bumped some count above/below an
+            // implementation limit.
+            (_, _) => return false,
+        };
+
+        let folder_of_bin = get_current_working_dir().unwrap().display().to_string();
+        let mut wasi = WasiCtxBuilder::new()
+            // set custom stdio
+            
+            .inherit_stdio()
+            .args( &args)
+            .unwrap()
+            // Preopen in the CWD 
+            .preopened_dir(
+                wasmtime_wasi::sync::Dir::open_ambient_dir(folder_of_bin.clone(), wasmtime_wasi::sync::ambient_authority()).unwrap()
+                , ".")
+            .unwrap()
+            .build();
+
+        let mut linker = create_linker(&engine);
+
+        let mut store2 = wasmtime::Store::new(&engine, wasi.clone());
+        let mut store1 = wasmtime::Store::new(&engine, wasi.clone());
+  
+
+        let instance1 = linker.instantiate(&mut store1, &orig_module).unwrap();
+        let instance2 = linker.instantiate(&mut store2, &mutated_module).unwrap();
+
+        let func1 = instance1
+            .get_func(&mut store1, "_start")
+            .unwrap();
+
+        let func2 = instance2
+            .get_func(&mut store2, "_start")
+            .unwrap();
+
+        
+        let r1 = func1.call(&mut store1, &mut [], &mut [])
+            .unwrap();        
+            
+        let r2 = func2.call(&mut store2, &mut [], &mut [])
+            .unwrap();       
+
+        // Check the stores state
+
+        true
+        /*let orig_imports = match dummy::dummy_imports(&mut orig_store, &orig_module) {
+            Ok(imps) => imps,
+            Err(_) => return,
+        };
+        let mutated_imports = match dummy::dummy_imports(&mut mutated_store, &mutated_module) {
+            Ok(imps) => imps,
+            Err(_) => return,
+        };*/
+
+        /*let (orig_instance, mutated_instance) = match (
+            wasmtime::Instance::new(&mut orig_store, &orig_module, &orig_imports),
+            wasmtime::Instance::new(&mut mutated_store, &mutated_module, &mutated_imports),
+        ) {
+            (Ok(x), Ok(y)) => (x, y),
+            (_, _) => return,
+        };*/
+
+        /*
+        assert_same_state(
+            &orig_module,
+            &mut orig_store,
+            orig_instance,
+            &mut mutated_store,
+            mutated_instance,
+        );
+        let should_have_same_state = assert_same_calls(
+            &orig_module,
+            &mut orig_store,
+            orig_instance,
+            &mut mutated_store,
+            mutated_instance,
+        );
+
+        if should_have_same_state {
+            assert_same_state(
+                &orig_module,
+                &mut orig_store,
+                orig_instance,
+                &mut mutated_store,
+                mutated_instance,
+            );
+        }*/
+    }
+
+/*
+    fn assert_same_state(
+        orig_module: &wasmtime::Module,
+        orig_store: &mut wasmtime::Store<StoreLimits>,
+        orig_instance: wasmtime::Instance,
+        mutated_store: &mut wasmtime::Store<StoreLimits>,
+        mutated_instance: wasmtime::Instance,
+    ) {
+        for export in orig_module.exports() {
+            match export.ty() {
+                wasmtime::ExternType::Global(_) => {
+                    let orig = orig_instance
+                        .get_export(&mut *orig_store, export.name())
+                        .unwrap()
+                        .into_global()
+                        .unwrap()
+                        .get(&mut *orig_store);
+                    let mutated = mutated_instance
+                        .get_export(&mut *mutated_store, export.name())
+                        .unwrap()
+                        .into_global()
+                        .unwrap()
+                        .get(&mut *mutated_store);
+                    assert_val_eq(&orig, &mutated);
+                }
+                wasmtime::ExternType::Memory(_) => {
+                    let orig = orig_instance
+                        .get_export(&mut *orig_store, export.name())
+                        .unwrap()
+                        .into_memory()
+                        .unwrap();
+                    let mut h = DefaultHasher::default();
+                    orig.data(&orig_store).hash(&mut h);
+                    let orig = h.finish();
+                    let mutated = mutated_instance
+                        .get_export(&mut *mutated_store, export.name())
+                        .unwrap()
+                        .into_memory()
+                        .unwrap();
+                    let mut h = DefaultHasher::default();
+                    mutated.data(&mutated_store).hash(&mut h);
+                    let mutated = h.finish();
+                    assert_eq!(orig, mutated, "original and mutated Wasm memories diverged");
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    fn assert_same_calls(
+        orig_module: &wasmtime::Module,
+        orig_store: &mut wasmtime::Store<StoreLimits>,
+        orig_instance: wasmtime::Instance,
+        mutated_store: &mut wasmtime::Store<StoreLimits>,
+        mutated_instance: wasmtime::Instance,
+    ) -> bool {
+        for export in orig_module.exports() {
+            let func_ty = match export.ty() {
+                wasmtime::ExternType::Func(func_ty) => func_ty,
+                _ => continue,
+            };
+            let orig_func = orig_instance
+                .get_func(&mut *orig_store, export.name())
+                .unwrap();
+            let mutated_func = mutated_instance
+                .get_func(&mut *mutated_store, export.name())
+                .unwrap();
+            let args = dummy::dummy_values(func_ty.params());
+            let mut orig_results = vec![Val::I32(0); func_ty.results().len()];
+            let mut mutated_results = orig_results.clone();
+            log::debug!("invoking `{}`", export.name());
+            match (
+                {
+                    orig_store.add_fuel(1_000).unwrap();
+                    orig_func.call(&mut *orig_store, &args, &mut orig_results)
+                },
+                {
+                    mutated_store.add_fuel(1000).unwrap();
+                    mutated_func.call(&mut *mutated_store, &args, &mut mutated_results)
+                },
+            ) {
+                (Ok(()), Ok(())) => {
+                    for (orig_val, mutated_val) in orig_results.iter().zip(mutated_results.iter()) {
+                        assert_val_eq(orig_val, mutated_val);
+                    }
+                }
+                // If either test case ran out of fuel then that's ok since
+                // mutation may add code or delete code which causes one side to
+                // take more or less fuel than the other. In this situation,
+                // however, execution has diverged so throw out the test case.
+                (Err(e), _) | (_, Err(e))
+                    if e.downcast_ref() == Some(&wasmtime::Trap::OutOfFuel) =>
+                {
+                    return false
+                }
+                (Err(orig), Err(mutated)) => {
+                    log::debug!("original error {orig:?}");
+                    log::debug!("mutated error {mutated:?}");
+                    continue;
+                }
+                (orig, mutated) => panic!(
+                    "mutated and original Wasm diverged: orig = {:?}; mutated = {:?}",
+                    orig, mutated,
+                ),
+            }
+        }
+
+        true
+    }
+
+    fn assert_val_eq(orig_val: &wasmtime::Val, mutated_val: &wasmtime::Val) {
+        match (orig_val, mutated_val) {
+            (wasmtime::Val::I32(o), wasmtime::Val::I32(m)) => assert_eq!(o, m),
+            (wasmtime::Val::I64(o), wasmtime::Val::I64(m)) => assert_eq!(o, m),
+            (wasmtime::Val::F32(o), wasmtime::Val::F32(m)) => {
+                let o = f32::from_bits(*o);
+                let m = f32::from_bits(*m);
+                assert!(o == m || (o.is_nan() && m.is_nan()));
+            }
+            (wasmtime::Val::F64(o), wasmtime::Val::F64(m)) => {
+                let o = f64::from_bits(*o);
+                let m = f64::from_bits(*m);
+                assert!(o == m || (o.is_nan() && m.is_nan()));
+            }
+            (wasmtime::Val::V128(o), wasmtime::Val::V128(m)) => {
+                assert_eq!(o, m)
+            }
+            (wasmtime::Val::ExternRef(o), wasmtime::Val::ExternRef(m)) => {
+                assert_eq!(o.is_none(), m.is_none())
+            }
+            (wasmtime::Val::FuncRef(o), wasmtime::Val::FuncRef(m)) => {
+                assert_eq!(o.is_none(), m.is_none())
+            }
+            (o, m) => panic!(
+                "mutated and original Wasm diverged: orig = {:?}; mutated = {:?}",
+                o, m,
+            ),
+        }
+    } */
 }
