@@ -149,7 +149,7 @@ impl Stacking {
                             }
 
                             if let Some(original_state) = &self.original_state {
-                                if !eval::assert_same_evaluation(&original_state, &b, self.check_args.clone()) {
+                                if !eval::assert_same_evaluation(&self.original, &b, self.check_args.clone()) {
                                     break;
                                 }
                             }
@@ -305,13 +305,12 @@ mod eval {
     ///
     /// We should get identical results because we told `wasm-mutate` to preserve
     /// semantics.
-    pub fn assert_same_evaluation(original_result: &ExecutionResult, mutated_wasm: &[u8], args: Vec<String>) -> bool {
+    pub fn assert_same_evaluation(original_wasm: &[u8], mutated_wasm: &[u8], args: Vec<String>) -> bool {
         
-        match execute_single(mutated_wasm, args.clone()) {
-            Some((mut store2, stdout2, stderr2, _mod2, instance2)) => {
-                let (mut store1, stdout1, stderr1, mod1, instance1) = original_result;
+        match (execute_single(original_wasm, args.clone()), execute_single(mutated_wasm, args.clone())) {
+            (Some((mut store1, stdout1, stderr1, mod1, instance1)), Some((mut store2, stdout2, stderr2, _mod2, instance2))) => {
                 
-                if *stdout1 != stdout2 || *stderr1 != stderr2 {
+                if stdout1 != stdout2 || stderr1 != stderr2 {
                     eprintln!("Std is not the same");
                     return false
                 }
@@ -319,7 +318,7 @@ mod eval {
                 if !assert_same_state(
                     &mod1,
                     &mut store1,
-                    *instance1,
+                    instance1,
                     &mut store2,
                     instance2,
                 ) {

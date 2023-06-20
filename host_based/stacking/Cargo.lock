@@ -1373,11 +1373,22 @@ dependencies = [
  "log",
  "rand",
  "sled",
+ "stdio-override",
  "thiserror",
+ "wasi-common",
  "wasm-mutate",
  "wasmtime",
  "wasmtime-jit",
  "wasmtime-wasi",
+]
+
+[[package]]
+name = "stdio-override"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9c22512d2e95aa9a717da4c955c0085078a1f28b988e0736fc7066fdcc030c8"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
