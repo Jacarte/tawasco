@@ -165,7 +165,7 @@ fn main() -> anyhow::Result<()> {
         stack.next();
 
         if stack.index % opts.step == 0 {
-            let name = format!("{}-{}.wasm", opts.output.to_str().unwrap(), stack.index);
+            let name = format!("{}.{}.wasm", opts.output.to_str().unwrap(), stack.index);
             // Write the current to fs
             std::fs::write(&name, stack.current.clone()).context("Could not write the output file")?;
 
