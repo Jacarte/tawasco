@@ -76,7 +76,7 @@ jobs:
 
       - name: Build CLI ${{ matrix.os }}
         # We rollback the patch to the memory allocation
-        run: sudo mkdir /out && cd /out && git clone --recursive https://github.com/Jacarte/wasmtime.git &&  cd wasmtime && git reset --hard 20c58362959562627b93bfb9f15423ef0d4f4376 && git submodule update --init  && cargo build --release --target ${{ matrix.target }}
+        run: sudo mkdir /out && cd /out && sudo chown -R $USER:$USER /out && git clone --recursive https://github.com/Jacarte/wasmtime.git &&  cd wasmtime && git reset --hard 20c58362959562627b93bfb9f15423ef0d4f4376 && git submodule update --init  && cargo build --release --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
