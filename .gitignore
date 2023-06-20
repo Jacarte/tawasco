@@ -19,3 +19,4 @@ trace.*
 w.lock
 
 wbc
+Cargo.lock
