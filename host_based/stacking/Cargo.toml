@@ -27,4 +27,4 @@ stdio-override = "0.1.3"
 
 [features]
 default = ["wasm-mutate/default"]
-only-runtime = ["wasm-mutate/runtime-only", "wasm-mutate/peephole-small", "wasm-mutate/random-access"]
+only-runtime = ["wasm-mutate/runtime-only", "wasm-mutate/peephole-small"]
