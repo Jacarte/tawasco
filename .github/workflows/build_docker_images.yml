@@ -1,4 +1,4 @@
-name: Build docker evasor
+name: Build docker for experimenting
 # This workflow is triggered on pushes to the repository.
 on:
   release:
