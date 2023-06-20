@@ -36,7 +36,7 @@ jobs:
         include:
           - name: linux
             os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
-            path: target/x86_64-unknown-linux-gnu/release/stacking
+            path: host_based/stacking/target/x86_64-unknown-linux-gnu/release/stacking
             asset_name: stacking-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: x86_64-unknown-linux-gnu
@@ -48,14 +48,14 @@ jobs:
               # target: aarch64-unknown-linux-gnu
           - name: macos
             os: macos-latest
-            path: target/x86_64-apple-darwin/release/stacking
+            path: host_based/stacking/target/x86_64-apple-darwin/release/stacking
             asset_name: stacking-x86_64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
             target: x86_64-apple-darwin
           
           - name: macos-arm64
             os: macos-latest
-            path: target/aarch64-apple-darwin/release/stacking
+            path: host_based/stacking/target/aarch64-apple-darwin/release/stacking
             asset_name: stacking-arm-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
             target: aarch64-apple-darwin
@@ -73,7 +73,7 @@ jobs:
 
       # Should no-op except for macos-arm and linux-arm cases where that target won't be installed
       - name: Install target
-        run: rustup target add wasm32-wasi wasm32-unknown-unknown ${{ matrix.target }}
+        run: rustup update && rustup target add wasm32-wasi wasm32-unknown-unknown ${{ matrix.target }}
 
       # wasmtime-fiber and binaryen fail to compile without this
       - name: Install Aarch64 GCC toolchain
