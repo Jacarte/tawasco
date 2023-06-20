@@ -1,4 +1,4 @@
-[![Build wasm-mutate runtime only](https://github.com/Jacarte/tawasco/actions/workflows/ci.yml/badge.svg)](https://github.com/Jacarte/tawasco/actions/workflows/ci.yml)
+[![Build wasm-mutate runtime only](https://github.com/Jacarte/tawasco/actions/workflows/ci.yml/badge.svg)](https://github.com/Jacarte/tawasco/actions/workflows/ci.yml) [![Build host_single for tracing](https://github.com/Jacarte/tawasco/actions/workflows/ci_host_based.yml/badge.svg)](https://github.com/Jacarte/tawasco/actions/workflows/ci_host_based.yml) [![Build host for spectre POC](https://github.com/Jacarte/tawasco/actions/workflows/ci_host_based_sequential.yml/badge.svg)](https://github.com/Jacarte/tawasco/actions/workflows/ci_host_based_sequential.yml)
 
 # This repo contains cache-timing and side-channel based attacks for WebAssembly
 
