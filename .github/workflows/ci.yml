@@ -57,7 +57,7 @@ jobs:
             path: wasm-tools/target/wasm32-wasi/release/wasm-tools.wasm
             asset_name: wasm-tools-wasm-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
-            features: --no-default-features --features mutate wasm-mutate/runtime-only 
+            features: --no-default-features --features mutate,wasm-mutate/runtime-only 
             target: wasm32-wasi
           - name: macos-arm64
             os: macos-latest
@@ -92,7 +92,7 @@ jobs:
             path: wasm-tools/target/wasm32-wasi/release/wasm-tools.wasm
             asset_name: wasm-tools-wasm-all-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
-            features: --no-default-features --features mutate wasm-mutate/default
+            features: --no-default-features --features mutate,wasm-mutate/default
             target: wasm32-wasi
           - name: macos-arm64-all
             os: macos-latest
