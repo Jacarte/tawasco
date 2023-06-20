@@ -28,9 +28,6 @@ RUN ./rustup.sh -y
 RUN apt-get install -y gcc clang
 RUN ~/.cargo/bin/rustup update
 
-# Install wasm-tools
-RUN ~/.cargo/bin/cargo install wasm-tools
-
 
 # Install wasi-sdk
 COPY download_wasi_sdk.sh /download_wasi.sh
