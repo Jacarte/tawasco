@@ -131,7 +131,7 @@ impl Stacking {
                                 eprintln!("{} mutations", self.index);
                             }
 
-                            eprintln!("=== TRANSFORMED");
+                            eprintln!("=== TRANSFORMED {}",  self.index);
                             break;
 
                         }
