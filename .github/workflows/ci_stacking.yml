@@ -37,8 +37,9 @@ jobs:
           - name: linux
             os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
             path: host_based/stacking/target/x86_64-unknown-linux-gnu/release/stacking
-            asset_name: stacking-x86_64-linux-${{ github.event.release.tag_name }}
+            asset_name: stacking-all-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
+            features: --features default
             target: x86_64-unknown-linux-gnu
               # - name: linux-arm64
               #os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
@@ -49,15 +50,47 @@ jobs:
           - name: macos
             os: macos-latest
             path: host_based/stacking/target/x86_64-apple-darwin/release/stacking
-            asset_name: stacking-x86_64-macos-${{ github.event.release.tag_name }}
+            asset_name: stacking-all-x86_64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
+            features: --features default
             target: x86_64-apple-darwin
           
           - name: macos-arm64
             os: macos-latest
             path: host_based/stacking/target/aarch64-apple-darwin/release/stacking
+            asset_name: stacking-all-arm-macos-${{ github.event.release.tag_name }}
+            shasum_cmd: shasum -a 256
+            features: --features default
+            target: aarch64-apple-darwin
+
+          
+          - name: linux-runtime
+            os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
+            path: host_based/stacking/target/x86_64-unknown-linux-gnu/release/stacking
+            asset_name: stacking-x86_64-linux-${{ github.event.release.tag_name }}
+            shasum_cmd: sha256sum
+            features: --features only-runtime
+            target: x86_64-unknown-linux-gnu
+              # - name: linux-arm64
+              #os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
+              # path: target/aarch64-unknown-linux-gnu/release/dtw-tools
+              # asset_name: dtw-tools-arm-linux-${{ github.event.release.tag_name }}
+              # shasum_cmd: sha256sum
+              # target: aarch64-unknown-linux-gnu
+          - name: macos-runtime
+            os: macos-latest
+            path: host_based/stacking/target/x86_64-apple-darwin/release/stacking
+            asset_name: stacking-x86_64-macos-${{ github.event.release.tag_name }}
+            shasum_cmd: shasum -a 256
+            features: --features only-runtime
+            target: x86_64-apple-darwin
+          
+          - name: macos-arm64-runtime
+            os: macos-latest
+            path: host_based/stacking/target/aarch64-apple-darwin/release/stacking
             asset_name: stacking-arm-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
+            features: --features only-runtime
             target: aarch64-apple-darwin
           #- name: windows
           #  os: windows-latest
@@ -84,7 +117,7 @@ jobs:
 
 
       - name: Build CLI ${{ matrix.os }}
-        run: cd host_based/stacking && cargo build --release --target ${{ matrix.target }}
+        run: cd host_based/stacking && cargo build --release --target ${{ matrix.target }} --features ${{ matrix.features }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
