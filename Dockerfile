@@ -63,7 +63,7 @@ COPY wbc/ches2016/wb_challenge.wasm /wbc/ches2016/wb_challenge.wasm
 COPY wbc/ches2016/trace_it.py /wbc/ches2016/trace_it.py
 
 # Install daredevil here !
-RUN apt-get install -y git clang make libomp-dev --no-install-recommends
+RUN apt-get install -y git clang cmake make libomp-dev --no-install-recommends
 RUN git clone --recursive https://github.com/SideChannelMarvels/Daredevil.git
 WORKDIR /Daredevil
 RUN make
