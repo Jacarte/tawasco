@@ -20,6 +20,7 @@ use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 use std::{panic, process};
 use wasm_mutate::WasmMutate;
+use wasmtime::Val;
 
 /// # Stacking for wasm-mutate.
 ///
@@ -116,7 +117,7 @@ impl Stacking {
         let original_state = if check_io {
             match eval::execute_single(&current, check_args.clone(), fuel) {
                 Some(it) => {
-                    eprintln!("Original time {}ns", it.5.as_nanos());
+                    eprintln!("Original time {}ns", it.6.as_nanos());
                     Some(it)
                 }
                 None => {
@@ -174,7 +175,7 @@ impl Stacking {
 
                             if let Some(original_state) = &self.original_state {
                                 if !eval::assert_same_evaluation(
-                                    &self.original,
+                                    &original_state,
                                     &b,
                                     self.check_args.clone(),
                                     self.fuel,
@@ -329,6 +330,7 @@ mod eval {
     use std::hash::Hasher;
     use wasmtime_wasi::sync::WasiCtxBuilder;
     use wasmtime_wasi::WasiCtx;
+    use wasmtime::Val;
 
     fn get_current_working_dir() -> std::io::Result<std::path::PathBuf> {
         std::env::current_dir()
@@ -345,7 +347,8 @@ mod eval {
     }
 
     pub type ExecutionResult = (
-        wasmtime::Store<WasiCtx>,
+        Vec<u64>,
+        Vec<Val>,
         String,
         String,
         wasmtime::Module,
@@ -420,10 +423,16 @@ mod eval {
 
         let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
         let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+
         drop(guardout);
         drop(guarderr);
+
+        // Get mem hash
+        let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
+
         Some((
-            store1,
+            mem_hashes,
+            glob_vals,
             stdout.into(),
             stderr.into(),
             module,
@@ -437,24 +446,49 @@ mod eval {
     /// We should get identical results because we told `wasm-mutate` to preserve
     /// semantics.
     pub fn assert_same_evaluation(
-        original_wasm: &[u8],
+        original_result: &ExecutionResult,
         mutated_wasm: &[u8],
         args: Vec<String>,fuel: u64, check_mem: bool
     ) -> bool {
-        match (
-            execute_single(original_wasm, args.clone(), fuel),
-            execute_single(mutated_wasm, args.clone(), fuel),
-        ) {
-            (
-                Some((mut store1, stdout1, stderr1, mod1, instance1, _)),
-                Some((mut store2, stdout2, stderr2, _mod2, instance2, time2)),
-            ) => {
-                if stdout1 != stdout2 || stderr1 != stderr2 {
+        match execute_single(mutated_wasm, args.clone(), fuel)
+        {
+                
+        Some((mem2, glob2,  stdout2, stderr2, _mod2, instance2, time2))
+             => {
+                let (mem1, glob1, stdout1, stderr1, mod1, instance1, _) = original_result;
+                if *stdout1 != stdout2 || *stderr1 != stderr2 {
                     eprintln!("Std is not the same");
                     return false;
                 }
                 // Now we compare the stores
-                if check_mem && !assert_same_state(&mod1, &mut store1, instance1, &mut store2, instance2) {
+                if check_mem {
+                    if mem1.len() != mem2.len() {
+                        eprintln!("Memories are not the same");
+                        return false;
+                    }
+
+                    if glob1.len() != glob2.len() {
+                        eprintln!("Globals are not the same");
+                        return false;
+                    }
+
+                    // Compare the memories
+                    // Zip them and compare the hashes in order
+                    for (m1, m2) in mem1.iter().zip(mem2.iter()) {
+                        if m1 != m2 {
+                            eprintln!("Memories are not the same");
+                            return false;
+                        }
+                    }
+
+                    // The same for globals
+                    for (g1, g2) in glob1.iter().zip(glob2.iter()) {
+                        if ! assert_val_eq(&g1, &g2) {
+                            eprintln!("Globals are not the same");
+                            return false;
+                        }
+                    }
+
                     eprintln!("Invalid state");
                     return false;
                 };
@@ -473,10 +507,13 @@ mod eval {
     fn assert_same_state(
         orig_module: &wasmtime::Module,
         orig_store: &mut wasmtime::Store<WasiCtx>,
-        orig_instance: wasmtime::Instance,
-        mutated_store: &mut wasmtime::Store<WasiCtx>,
-        mutated_instance: wasmtime::Instance,
-    ) -> bool {
+        orig_instance: wasmtime::Instance
+    ) -> (
+        Vec<u64>,
+        Vec<Val>,
+    ) {
+        let mut mem_hashes = vec![];
+        let mut glob_vals = vec![];
         for export in orig_module.exports() {
             match export.ty() {
                 wasmtime::ExternType::Global(_) => {
@@ -486,17 +523,8 @@ mod eval {
                         .into_global()
                         .unwrap()
                         .get(&mut *orig_store);
-                    let mutated = mutated_instance
-                        .get_export(&mut *mutated_store, export.name())
-                        .unwrap()
-                        .into_global()
-                        .unwrap()
-                        .get(&mut *mutated_store);
 
-                    if !assert_val_eq(&orig, &mutated) {
-                        eprintln!("Globals are not the same");
-                        return false;
-                    }
+                    glob_vals.push(orig);
                 }
                 wasmtime::ExternType::Memory(_) => {
                     let orig = orig_instance
@@ -507,25 +535,14 @@ mod eval {
                     let mut h = DefaultHasher::default();
                     orig.data(&orig_store).hash(&mut h);
                     let orig = h.finish();
-                    let mutated = mutated_instance
-                        .get_export(&mut *mutated_store, export.name())
-                        .unwrap()
-                        .into_memory()
-                        .unwrap();
-                    let mut h = DefaultHasher::default();
-                    mutated.data(&mutated_store).hash(&mut h);
-                    let mutated = h.finish();
-
-                    if orig != mutated {
-                        eprintln!("original and mutated Wasm memories diverged");
-                        return false;
-                    }
+                    
+                    mem_hashes.push(orig);
                 }
                 _ => continue,
             }
         }
 
-        return true;
+        return (mem_hashes, glob_vals);
     }
 
     /*
