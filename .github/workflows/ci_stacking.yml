@@ -55,13 +55,6 @@ jobs:
             features: --features default
             target: x86_64-apple-darwin
           
-          - name: macos-arm64
-            os: macos-latest
-            path: host_based/stacking/target/aarch64-apple-darwin/release/stacking
-            asset_name: stacking-all-arm-macos-${{ github.event.release.tag_name }}
-            shasum_cmd: shasum -a 256
-            features: --features default
-            target: aarch64-apple-darwin
 
           
           - name: linux-runtime
@@ -84,14 +77,6 @@ jobs:
             shasum_cmd: shasum -a 256
             features: --features only-runtime
             target: x86_64-apple-darwin
-          
-          - name: macos-arm64-runtime
-            os: macos-latest
-            path: host_based/stacking/target/aarch64-apple-darwin/release/stacking
-            asset_name: stacking-arm-macos-${{ github.event.release.tag_name }}
-            shasum_cmd: shasum -a 256
-            features: --features only-runtime
-            target: aarch64-apple-darwin
           #- name: windows
           #  os: windows-latest
           #  path: target\x86_64-pc-windows-msvc\release\dtw-tools.exe
