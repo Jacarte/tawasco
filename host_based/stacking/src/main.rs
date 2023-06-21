@@ -288,6 +288,9 @@ fn main() {
 
             C += 1;
 
+            if C % 100 == 99 {
+                eprintln!("Count {}", C);
+            }
             if C == opts.count {
                 eprintln!("{} {}", C, opts.count);
                 break;
