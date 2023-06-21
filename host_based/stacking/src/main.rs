@@ -418,27 +418,42 @@ mod eval {
 
         let now = std::time::Instant::now();
 
-        func1.call(&mut store1, &mut [], &mut []);
-        let elapsed = now.elapsed();
+        match func1.call(&mut store1, &mut [], &mut []) {
+            Ok(e) => {
+                let elapsed = now.elapsed();
 
-        let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
-        let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+                let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
+                let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+        
+                drop(guardout);
+                drop(guarderr);
+        
+                // Get mem hash
+                let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
+        
+                Some((
+                    mem_hashes,
+                    glob_vals,
+                    stdout.into(),
+                    stderr.into(),
+                    module,
+                    instance1,
+                    elapsed,
+                ))
+            }
+            Err(e) => {
+                let elapsed = now.elapsed();
 
-        drop(guardout);
-        drop(guarderr);
-
-        // Get mem hash
-        let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
-
-        Some((
-            mem_hashes,
-            glob_vals,
-            stdout.into(),
-            stderr.into(),
-            module,
-            instance1,
-            elapsed,
-        ))
+                let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
+                let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+        
+                drop(guardout);
+                drop(guarderr);
+                eprintln!("Err {}", stderr);
+                None
+            }
+        }
+        
     }
 
     /// Compile, instantiate, and evaluate both the original and mutated Wasm.
