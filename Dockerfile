@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install packages
 RUN apt-get update  && apt-get -y upgrade
-RUN apt-get install -y wget curl
+RUN apt-get install -y wget curl p7zip-full
 
 # Install tracer
 #  We copy from this machine since compiling it is quite difficult

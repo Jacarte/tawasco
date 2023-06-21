@@ -58,6 +58,16 @@ struct Options {
     #[arg(long = "fuel", default_value = "0")]
     fuel: u64,
 
+    /// If true, a random parent will be selected to create the new variant out of the db. The -v parameter will be ignored.
+    #[arg(long = "chaos-mode", default_value = "false")]
+    chaos_mode: bool,
+
+
+
+    /// If true, checks consistency between original and variant memories
+    #[arg(long = "check-mem", default_value = "false")]
+    check_mem: bool,
+
     /// The output Wasm binary.
     output: PathBuf,
 }
@@ -67,7 +77,7 @@ fn swap(current: &mut Vec<u8>, new_interesting: Vec<u8>) {
 }
 
 struct Stacking {
-    current: Vec<u8>,
+    current: (Vec<u8>, usize),
     original: Vec<u8>,
     check_args: Vec<String>,
     original_state: Option<eval::ExecutionResult>,
@@ -75,8 +85,10 @@ struct Stacking {
     fuel: u64,
     count: usize,
     rnd: SmallRng,
+    check_mem: bool,
     // The hashes will prevent regression and non performed transformations
     hashes: sled::Db,
+    chaos_mode: bool
 }
 
 impl Stacking {
@@ -89,6 +101,8 @@ impl Stacking {
         check_args: Vec<String>,
         check_io: bool,
         fuel: u64,
+        chaos_mode: bool,
+        check_mem: bool
     ) -> Self {
         // Remove db if exist
         if remove_cache {
@@ -116,11 +130,13 @@ impl Stacking {
 
         Self {
             original: current.clone(),
-            current,
+            current: (current, 0),
             check_args,
             original_state,
             index: 0,
+            chaos_mode,
             fuel,
+            check_mem,
             count,
             rnd: SmallRng::seed_from_u64(seed),
             // Set the cache size to 3GB
@@ -129,8 +145,6 @@ impl Stacking {
     }
 
     pub fn next(&mut self) {
-        let mut new = self.current.clone();
-
         // Mutate
         let mut wasmmutate = WasmMutate::default();
         let mut wasmmutate = wasmmutate.preserve_semantics(true);
@@ -139,8 +153,8 @@ impl Stacking {
         eprintln!("Seed {}", seed);
         let mut wasmmutate = wasmmutate.seed(seed);
         let cp = self.current.clone();
-        let wasm = wasmmutate.run(&cp);
-
+        let wasm = wasmmutate.run(&cp.0);
+        // 
         match wasm {
             Ok(it) => {
                 // Get the first one only
@@ -168,40 +182,82 @@ impl Stacking {
                                     break;
                                 }
                             }
-                            self.hashes.insert(hash, b"1");
+                            // The val is the value is the wasm + the hash of the previous one
+                            let val = vec![self.index.to_le_bytes().to_vec(), b.clone()].concat();
+                            let _ = self.hashes.insert(hash, val).expect("Failed to insert");
 
                             // Execute to see semantic equivalence
 
-                            self.current = b.clone();
-                            self.index += 1;
+                            if self.chaos_mode {
+                                // TODO if chaos mode...select from the DB ?
+                                let random_item = self.rnd.gen_range(0..self.hashes.len());
+                                
+                                match self.hashes.iter().take(random_item)
+                                .next() {
+                                    Some(random_item) => {
 
-                            if self.index % 10000 == 9999 {
-                                eprintln!("{} mutations", self.index);
+                                        match random_item {
+                                            Ok(random_item) => {
+                                                let k = random_item.0;
+                                                // eprintln!("Random key {:?} out of {}", k, self.hashes.len());
+                                                let random_curr = random_item.1;
+                                                // eprintln!("Setting current");
+                                                // The val is the value is the wasm + the index in le bytes
+                                                let index = random_curr[0..8].to_vec();
+                                                let wasm = random_curr[8..].to_vec();
+                                                self.current = (wasm, usize::from_le_bytes(index.as_slice().try_into().unwrap()));
+                                                self.index  = self.current.1 + 1;
+                                            
+                                                eprintln!("=== CHAOS {}", self.index - 1);
+                                                break;
+                                            }
+                                            Err(e) => {
+                                                eprintln!("Error {}", e);
+                                                // We could not mutate the wasm, we skip it
+                                                continue
+                                            }
+                                        }
+                                    }
+                                    None => {
+                                        continue
+                                    }
+                                };
+
+                            } else {
+                                self.current = (b.clone(), self.index + 1);
+                                self.index += 1;
+    
+                                if self.index % 10000 == 9999 {
+                                    eprintln!("{} mutations", self.index);
+                                }
+    
+                                eprintln!("=== TRANSFORMED {}", self.index);
+                                break;
                             }
-
-                            eprintln!("=== TRANSFORMED {}", self.index);
-                            break;
+                            
                         }
                         Err(e) => {
+                            eprintln!("Error {}", e);
                             // We could not mutate the wasm, we skip it
                         }
                     }
                 }
             }
             Err(e) => {
+                eprintln!("Error {}", e);
                 // We could not mutate the wasm, we skip it
             }
         }
     }
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     // Init logs
     env_logger::init();
 
     let opts = Options::parse();
     // load the bytes from the input file
-    let bytes = std::fs::read(&opts.input).context("Could not read the input file")?;
+    let bytes = std::fs::read(&opts.input).expect("Could not read the input file");
 
     let mut stack = Stacking::new(
         bytes,
@@ -212,21 +268,41 @@ fn main() -> anyhow::Result<()> {
         opts.check_args,
         opts.check_io,
         opts.fuel,
+        opts.chaos_mode,
+        opts.check_mem
     );
 
+    let mut C = 0;
     loop {
         stack.next();
 
-        if stack.index % opts.step == 0 {
-            let name = format!("{}.{}.wasm", opts.output.to_str().unwrap(), stack.index);
+        // TODO if chaos mode... iterate over all DB keys and save all
+        if opts.chaos_mode {
+            let hash = blake3::hash(&stack.current.0);
+            let name = format!("{}.{}.chaos.wasm", hash, stack.index);
             // Write the current to fs
-            std::fs::write(&name, stack.current.clone())
-                .context("Could not write the output file")?;
+            std::fs::write(&name, stack.current.0.clone())
+                .expect("Could not write the output file");
 
-            eprintln!("=== STACKED");
+            C += 1;
+
+            if C == opts.count {
+                eprintln!("{} {}", C, opts.count);
+                break;
+            }
         }
-        if stack.index == opts.count {
-            break;
+        else {
+            if stack.index % opts.step == 0 {
+                let name = format!("{}.{}.wasm", opts.output.to_str().unwrap(), stack.index);
+                // Write the current to fs
+                std::fs::write(&name, stack.current.0.clone())
+                    .expect("Could not write the output file");
+
+                eprintln!("=== STACKED");
+            }
+            if stack.index == opts.count {
+                break;
+            }
         }
     }
 
@@ -234,8 +310,10 @@ fn main() -> anyhow::Result<()> {
     // assert!(stack.hashes.len() == opts.count);
 
     // Write the current to fs
-    std::fs::write(&opts.output, stack.current).context("Could not write the output file")?;
-    Ok(())
+    if !opts.chaos_mode{
+        std::fs::write(&opts.output, stack.current.0).expect("Could not write the output file");
+    }
+    //Ok(())
 }
 
 // Somesort of the same as wasm-mutate fuzz
@@ -335,7 +413,8 @@ mod eval {
         let func1 = instance1.get_func(&mut store1, "_start").unwrap();
 
         let now = std::time::Instant::now();
-        let r1 = func1.call(&mut store1, &mut [], &mut []).unwrap();
+
+        func1.call(&mut store1, &mut [], &mut []);
         let elapsed = now.elapsed();
 
         let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
