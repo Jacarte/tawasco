@@ -38,7 +38,6 @@ In the following gif we show how the Spectre POC (in the same binary) works on e
  - [ ] Attack cases:
    - [x] **C1**: Simple cache timing example. See `host_based/rustctre/eviction.rs`
    - [x] **C2**: Simple Spectre V1 in the same Wasm binary. See `host_based/rustctre/spectre_wasm.rs`
-   - [ ] **C3**  : Exfitlrate from host engine. See `spectre_wasm_sync_simulated.rs`
    - [ ] **C4**  : Attacker and victim in different Wasm binaries.
 - [x] Test if precompiled Wasm files make a difference. 
   - They do, at least in execution time when we autmatically test the accuracy
@@ -64,7 +63,7 @@ Questions:
 
 To reproduce this attacks and defenses. We propose to use a separated machine. For security and better measurements collection.
 
-- [ ] White box cryptography [challenges](https://github.com/SideChannelMarvels/Deadpool)
+- [x] White box cryptography [challenges](https://github.com/SideChannelMarvels/Deadpool)
   - [x] Compile C to Wasm
     - [x] CHES2016
   - [x] Perform attack
@@ -75,5 +74,5 @@ To reproduce this attacks and defenses. We propose to use a separated machine. F
         - Note: disable ASLR for better performance.
         - The attack works only with PIN. It was easier for plotting and filtrating non-Wasm traces.
     - [x] Host based with wasmtime
-- [ ] Create automatic benchmark for measuring exfiltration accuracy
-- [ ] Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack.
+- [x] Create automatic benchmark for measuring exfiltration accuracy
+- [x] Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack.

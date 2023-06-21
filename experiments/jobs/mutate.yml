@@ -540,6 +540,9 @@ spec:
         ulimit -n
         ulimit -S
 
-        timeout --foreground 3600 RUST_LOG=debug stacking "out/{{inputs.parameters.file}}.wasm" "out/$NAME" --seed $SEED --count 1000000 -v 1 --chaos-mode   --check-io 2> "out/$NAME.log.txt"
+        RUST_LOG=wasm_mutate=debug timeout --foreground 3600 stacking "out/{{inputs.parameters.file}}.wasm" "out/stacking.wasm" --seed $SEED --count 1000000 -v 1 --chaos-mode   --check-io 2> "out/log.txt"
+        
+        du -h /out
+        ls -la /out | wc -l
 
         7z a  -tzip /variants.zip out/
