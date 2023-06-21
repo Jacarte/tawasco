@@ -178,6 +178,7 @@ impl Stacking {
                                     &b,
                                     self.check_args.clone(),
                                     self.fuel,
+                                    self.check_mem
                                 ) {
                                     break;
                                 }
@@ -208,7 +209,7 @@ impl Stacking {
                                                 self.current = (wasm, usize::from_le_bytes(index.as_slice().try_into().unwrap()));
                                                 self.index  = self.current.1 + 1;
                                             
-                                                eprintln!("=== CHAOS {}", self.index - 1);
+                                                eprintln!("=== CHAOS {}", self.index);
                                                 break;
                                             }
                                             Err(e) => {
@@ -438,7 +439,7 @@ mod eval {
     pub fn assert_same_evaluation(
         original_wasm: &[u8],
         mutated_wasm: &[u8],
-        args: Vec<String>,fuel: u64
+        args: Vec<String>,fuel: u64, check_mem: bool
     ) -> bool {
         match (
             execute_single(original_wasm, args.clone(), fuel),
@@ -453,7 +454,7 @@ mod eval {
                     return false;
                 }
                 // Now we compare the stores
-                if !assert_same_state(&mod1, &mut store1, instance1, &mut store2, instance2) {
+                if check_mem && !assert_same_state(&mod1, &mut store1, instance1, &mut store2, instance2) {
                     eprintln!("Invalid state");
                     return false;
                 };
