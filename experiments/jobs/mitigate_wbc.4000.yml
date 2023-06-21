@@ -1,0 +1,381 @@
+# TODO
+# Try with 100 seeds for 10, 100, 1000, 2000, 10000 stacked variants = (5*100) binaries... then we can generalize
+
+# 1 - Generate the variants based on the number of stacked mutations
+# 2 - Execute the variants
+# 3 - Collect the BER records
+# 
+# After finding the best number of stacked, we can do a bisection on the number of stacked variants
+# Check if the variant is resilient after optimizing it with binaryen
+
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: wasm-wbc-mitigation-1-
+spec:
+  entrypoint: per-file
+  parallelism: 30
+  templates:
+  - name: per-file
+    steps:
+    - - name: get-trace
+        template: get-trace-template
+        arguments:
+          parameters:
+            - name: file
+              value: "{{ item.file }}"
+            - name: stacked
+              value: "{{ item.stacked }}"
+            - name: seed
+              value: "{{ item.seed }}"
+        withItems:
+          # Load from file
+          
+          - { file: "wb_challenge.wasm", stacked: "0",  seed: "10" }
+
+          - { file: "stacking.asym.wasm.2000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.10000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.30000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.40000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.50000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.60000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.66000.wasm", stacked: "0",  seed: "10" }
+          
+
+    - - name: select-file
+        template: wasm-mutate-template
+        arguments:
+          parameters:
+            - name: file
+              value: "{{ item.file }}"
+            - name: stacked
+              value: "{{ item.stacked }}"
+            - name: seed
+              value: "{{ item.seed }}"
+        withItems:
+          - { file: "wb_challenge.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.2000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.10000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.30000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.40000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.50000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.60000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.66000.wasm", stacked: "0",  seed: "10" }
+
+
+
+          # Really large
+
+          # Add the others here
+    # - - Make the performance evaluation
+    # - - Try with different trace size as well
+    # - - TODO add here the merge step
+    - - name: ber
+        template: ber-template
+        arguments:
+          parameters:
+            - name: file
+              value: "{{ item.file }}"
+            - name: stacked
+              value: "{{ item.stacked }}"
+            - name: seed
+              value: "{{ item.seed }}"
+        withItems:
+          - { file: "wb_challenge.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.2000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.10000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.30000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.40000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.50000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.60000.wasm", stacked: "0",  seed: "10" }
+          - { file: "stacking.asym.wasm.66000.wasm", stacked: "0",  seed: "10" }
+          
+        continueOn:
+          failed: true
+
+  - name: get-trace-template
+    inputs:
+
+      parameters:
+      - name: file
+      - name: stacked
+      - name: seed
+
+      artifacts:
+      - name: data
+        path: "/input.wasm"
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "rq3/wasms/{{inputs.parameters.file}}"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+    
+    script:
+      image: jacarte/wm-image:latest
+      command: [bash]
+      source: |
+        cd /
+        
+        mkdir -p $HOME/minio-binaries
+        wget -O $HOME/minio-binaries/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+        ls
+        echo "======"
+        chmod +x $HOME/minio-binaries/mc
+        export PATH=$PATH:$HOME/minio-binaries/
+
+        mc config host add exp http://minio-service.minio:3434 minio minio123
+
+        export PIN_ROOT=/opt/pin-3.15-98253-gb56e429b1-gcc-linux
+        
+        apt-get update && apt-get install -y p7zip-full
+
+        wget -O host_single.gz https://github.com/Jacarte/tawasco/releases/download/0.1.9/host_single-x86_64-linux-0.1.9.gz
+        7z x host_single.gz
+        chmod +x host_single
+        mv host_single /usr/local/bin/host_single
+
+        host_single /input.wasm ae d2 1c e1 5a 46 2d 1b 34 91 03 3b bf 50 1f b6
+
+        /usr/local/bin/Tracer -t sqlite -f 4 -o db.db -- host_single /input.wasm 7b c3 b1 4e 60 54 3f ff 1b 70 92 c3 6e 15 83 60
+        
+        mc cp db.db exp/wasm-mutate/traces/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}.db
+
+        
+
+  - name: ber-template
+    inputs:
+
+      parameters:
+      - name: file
+      - name: stacked
+      - name: seed
+
+      artifacts:
+      - name: data
+        path: "/attacks/"
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+    script:
+      image: jacarte/wm-image:latest
+      command: [bash]
+      source: |
+        cd /
+
+        wget -O BER.py https://gist.githubusercontent.com/Jacarte/faa4002a8dc59d0282a4c6ee8474c4eb/raw/c3131f4c79f4e9fa5d20d3b69c236861e0b8033b/BER.py
+
+        wget -O ches2016.py https://gist.githubusercontent.com/Jacarte/faa4002a8dc59d0282a4c6ee8474c4eb/raw/c3131f4c79f4e9fa5d20d3b69c236861e0b8033b/ches2016.py
+
+        tail -n 50 "/attacks/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/sbox.result.txt"
+        
+        tail -n 50 "/attacks/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/mulinv.result.txt" 
+
+        python3 ches2016.py "/attacks/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/sbox.result.txt" "/attacks/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/mulinv.result.txt" 
+
+
+
+
+  - name: wasm-mutate-template
+    retryStrategy:
+      limit: 2
+    inputs:
+
+      parameters:
+      - name: file
+      - name: stacked
+      - name: seed
+      artifacts:
+      - name: data
+        path: "/stacked.wasm"
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "rq3/wasms/{{inputs.parameters.file}}"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+          
+    outputs:
+      artifacts:
+      - name: attacks
+        path: /wbc/ches2016
+        optional: true
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+      
+      - name: ber
+        path: /wbc/ches2016/ber.txt
+        optional: true
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "/bers/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}.ber.txt"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+      
+    script:
+      image: jacarte/wm-image:latest
+      command: [bash]
+      # Comment out later if it holds
+      #
+      resources:
+        requests:
+          memory: "0"
+          cpu: 1
+      source: |
+
+        cd /
+
+        # install minio mc
+        mkdir -p $HOME/minio-binaries
+        wget -O $HOME/minio-binaries/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+        ls
+        echo "======"
+        chmod +x $HOME/minio-binaries/mc
+        export PATH=$PATH:$HOME/minio-binaries/
+
+        mc config host add exp http://minio-service.minio:3434 minio minio123
+
+        if [[  $(mc ls "exp/wasm-mutate/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/sbox.result.txt" | wc -l) -gt 0 ]]
+        then
+            echo "Already exist. Skip"
+            # Check the number of oracles ?
+            exit 0
+          
+        fi
+        # Insall wasm-tools
+        # wget -O wasm-tools.gz https://github.com/bytecodealliance/wasm-tools/releases/download/wasm-tools-1.0.35/wasm-tools-1.0.35-x86_64-linux.tar.gz
+
+        # Install 7z deps
+        apt-get update && apt-get install -y p7zip-full
+
+        # Insall wasm-tools
+        wget -O wasm-tools.gz https://github.com/Jacarte/tawasco/releases/download/0.1.4/wasm-tools-all-x86_64-linux-0.1.4.gz
+        wget -O stacking.gz https://github.com/Jacarte/tawasco/releases/download/0.1.8/stacking-all-x86_64-linux-0.1.8.gz
+
+        7z x stacking.gz
+        chmod +x stacking
+        mv stacking /usr/local/bin/stacking
+
+        # Extract wasm-tools
+        7z x wasm-tools.gz
+        chmod +x wasm-tools
+        mv wasm-tools /usr/local/bin/wasm-tools
+
+        ls -la /usr/local/bin
+        wasm-tools --version
+
+        # Download wasmtime for compiling
+
+        wget -O wasmtime.gz https://github.com/Jacarte/tawasco/releases/download/0.1.8/wasmtime-x86_64-linux-0.1.8.gz || exit 1
+
+        rm -rf ./wasmtime || true
+
+        7z x wasmtime.gz || exit 1
+        chmod +x wasmtime
+        mv wasmtime /usr/local/bin/wasmtime
+        wasmtime --version
+
+        wget -O host_single.gz https://github.com/Jacarte/tawasco/releases/download/0.1.9/host_single-x86_64-linux-0.1.9.gz
+        7z x host_single.gz
+        chmod +x host_single
+        mv host_single /usr/local/bin/host_single
+
+
+        # Download PIN
+        # wget http://software.intel.com/sites/landingpage/pintool/downloads/pin-3.15-98253-gb56e429b1-gcc-linux.tar.gz
+        # tar xzf pin-3.15-98253-gb56e429b1-gcc-linux.tar.gz
+        # mv pin-3.15-98253-gb56e429b1-gcc-linux /opt
+        export PIN_ROOT=/opt/pin-3.15-98253-gb56e429b1-gcc-linux
+        # RUN echo -e "\nexport PIN_ROOT=/opt/pin-3.15-98253-gb56e429b1-gcc-linux" >> ~/.bashrc
+
+        # Compile
+        wasmtime compile /stacked.wasm
+        # move the generated file to wbc
+        cp /stacked.cwasm  /wbc/ches2016/wb_challenge.cwasm
+        cd /wbc/ches2016
+        ls /wbc/ches2016
+        # disable aslr
+        sysctl kernel.randomize_va_space=0
+        # sudo echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+        
+        #\amv ./Tracer /usr/local/bin/Tracer
+        # We run a first time to create the shared memory
+        host_single wb_challenge.cwasm ae d2 1c e1 5a 46 2d 1b 34 91 03 3b bf 50 1f b6
+
+        /usr/local/bin/Tracer -t sqlite -f 4 -o db.db -- host_single wb_challenge.cwasm 7b c3 b1 4e 60 54 3f ff 1b 70 92 c3 6e 15 83 60
+        ls .
+        mc cp db.db exp/wasm-mutate/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/db.db
+
+        # /usr/local/bin/Tracer -q 1 -b 0 -c 0 -i 0 -f 4 -o trace.tmp67618 -- /host_based/host_single/target/release/host_single wb_challenge.wasm ae d2 1c e1 5a 46 2d 1b 34 91 03 3b bf 50 1f b6
+        WASMTIME="host_single" python2 trace_it.py 3000
+        ls -lah .
+        # Remove files larger than 1 Gb
+        find . -type f -size +1G -exec rm -f {} \;
+
+        # mv the attack configs
+
+        # mem_addr1_rw1_2_41376.attack_sbox.config
+        daredevil -c mem_addr1_rw1_*_*.attack_sbox.config > sbox.result.txt &
+        # mem_addr1_rw1_2_41376.attack_multinv.config
+        daredevil -c mem_addr1_rw1_*_*.attack_multinv.config > mulinv.result.txt &
+
+        wait
+
+        wget -O BER.py https://gist.githubusercontent.com/Jacarte/faa4002a8dc59d0282a4c6ee8474c4eb/raw/c3131f4c79f4e9fa5d20d3b69c236861e0b8033b/BER.py
+
+        wget -O ches2016.py https://gist.githubusercontent.com/Jacarte/faa4002a8dc59d0282a4c6ee8474c4eb/raw/c3131f4c79f4e9fa5d20d3b69c236861e0b8033b/ches2016.py
+
+        python3 ches2016.py "sbox.result.txt" "mulinv.result.txt" 
+        python3 ches2016.py "sbox.result.txt" "mulinv.result.txt" > ber.txt
+
+        # Save the whole folder :|
+
+        

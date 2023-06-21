@@ -1,0 +1,545 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: wasm-mutate-1-
+spec:
+  entrypoint: per-file
+  parallelism: 50
+  templates:
+  - name: per-file
+    steps:
+    - - name: select-file
+        template: wasm-mutate-template
+        arguments:
+          parameters:
+            - name: file
+              value: "{{ item.file }}"
+        withItems:
+          - { file: "100_doors.c" }
+          - { file: "QR_decomposition.c" }
+          - { file: "Chinese_zodiac.c" }
+          - { file: "Tree_traversal.c" }
+          - { file: "Move-to-front_algorithm.c" }
+          - { file: "Parsing-RPN_to_infix_conversion.c" }
+          - { file: "Strip_a_set_of_characters_from_a_string.c" }
+          - { file: "Carmichael_3_strong_pseudoprimes.c" }
+          - { file: "Maze_generation.c" }
+          - { file: "Nth_root.c" }
+          - { file: "Knapsack_problem-Bounded.c" }
+          - { file: "UTF-8_encode_and_decode.c" }
+          - { file: "Optional_parameters.c" }
+          - { file: "Old_lady_swallowed_a_fly.c" }
+          - { file: "First-class_functions.c" }
+          - { file: "Numeric_separator_syntax.c" }
+          - { file: "Poker_hand_analyser.c" }
+          - { file: "List_comprehensions.c" }
+          - { file: "Munchausen_numbers.c" }
+          - { file: "Set_consolidation.c" }
+          - { file: "Show_the_epoch.c" }
+          - { file: "Start_from_a_main_routine.c" }
+          - { file: "Knapsack_problem-Unbounded.c" }
+          - { file: "Polymorphic_copy.c" }
+          - { file: "Sorting_algorithms-Heapsort.c" }
+          - { file: "Department_Numbers.c" }
+          - { file: "Substring-Top_and_tail.c" }
+          - { file: "Spiral_matrix.c" }
+          - { file: "Deconvolution-2D+.c" }
+          - { file: "Bell_numbers.c" }
+          - { file: "Sorting_algorithms-Cocktail_sort.c" }
+          - { file: "Fibonacci_n-step_number_sequences.c" }
+          - { file: "Emirp_primes.c" }
+          - { file: "Type_detection.c" }
+          - { file: "Truncatable_primes.c" }
+          - { file: "Sort_numbers_lexicographically.c" }
+          - { file: "Price_fraction.c" }
+          - { file: "Yin_and_yang.c" }
+          - { file: "Man_or_boy_test.c" }
+          - { file: "Stable_marriage_problem.c" }
+          - { file: "Amicable_pairs.c" }
+          - { file: "Sorting_algorithms-Insertion_sort.c" }
+          - { file: "Totient_function.c" }
+          - { file: "The_ISAAC_Cipher.c" }
+          - { file: "Evolutionary_algorithm.c" }
+          - { file: "Sorting_algorithms-Selection_sort.c" }
+          - { file: "String_interpolation_(included).c" }
+          - { file: "Permutation_test.c" }
+          - { file: "Levenshtein_distance-Alignment.c" }
+          - { file: "Zebra_puzzle.c" }
+          - { file: "Middle_three_digits.c" }
+          - { file: "Heronian_triangles.c" }
+          - { file: "Maximum_triangle_path_sum.c" }
+          - { file: "Magic_squares_of_singly_even_order.c" }
+          - { file: "Floyds_triangle.c" }
+          - { file: "Horners_rule_for_polynomial_evaluation.c" }
+          - { file: "Non-decimal_radices-Output.c" }
+          - { file: "Numeric_error_propagation.c" }
+          - { file: "Sorting_algorithms-Quicksort.c" }
+          - { file: "Determine_if_two_triangles_overlap.c" }
+          - { file: "Sort_disjoint_sublist.c" }
+          - { file: "Search_a_list_of_records.c" }
+          - { file: "Roots_of_a_function.c" }
+          - { file: "Nth.c" }
+          - { file: "S-Expressions.c" }
+          - { file: "Ethiopian_multiplication.c" }
+          - { file: "Sorting_algorithms-Stooge_sort.c" }
+          - { file: "Sorting_algorithms-Permutation_sort.c" }
+          - { file: "Hamming_numbers.c" }
+          - { file: "Continued_fraction-Arithmetic-Construct_from_rational_number.c" }
+          - { file: "Knapsack_problem-0-1.c" }
+          - { file: "Unbias_a_random_generator.c" }
+          - { file: "Validate_International_Securities_Identification_Number.c" }
+          - { file: "Sort_an_integer_array.c" }
+          - { file: "Dinesmans_multiple-dwelling_problem.c" }
+          - { file: "Imaginary_base_numbers.c" }
+          - { file: "Sum_of_squares.c" }
+          - { file: "Cholesky_decomposition.c" }
+          - { file: "String_length.c" }
+          - { file: "Stack.c" }
+          - { file: "Sum_of_a_series.c" }
+          - { file: "Two_Sum.c" }
+          - { file: "Symmetric_difference.c" }
+          - { file: "Non-decimal_radices-Convert.c" }
+          - { file: "Non-decimal_radices-Input.c" }
+          - { file: "Box_the_compass.c" }
+          - { file: "Terminal_control-Display_an_extended_character.c" }
+          - { file: "Sorting_algorithms-Bogosort.c" }
+          - { file: "Y_combinator.c" }
+          - { file: "Faulhabers_formula.c" }
+          - { file: "Fivenum.c" }
+          - { file: "Zeckendorf_arithmetic.c" }
+          - { file: "Vogels_approximation_method.c" }
+          - { file: "Longest_Common_Substring.c" }
+          - { file: "Doubly-linked_list-Traversal.c" }
+          - { file: "Peaceful_chess_queen_armies.c" }
+          - { file: "Damm_algorithm.c" }
+          - { file: "General_FizzBuzz.c" }
+          - { file: "String_matching.c" }
+          - { file: "The_Name_Game.c" }
+          - { file: "Execute_a_Markov_algorithm.c" }
+          - { file: "Josephus_problem.c" }
+          - { file: "Integer_roots.c" }
+          - { file: "String_concatenation.c" }
+          - { file: "URL_encoding.c" }
+          - { file: "Sparkline_in_unicode.c" }
+          - { file: "Strip_whitespace_from_a_string-Top_and_tail.c" }
+          - { file: "Day_of_the_week.c" }
+          - { file: "Best_shuffle.c" }
+          - { file: "Sequence_of_non-squares.c" }
+          - { file: "Vector.c" }
+          - { file: "Dot_product.c" }
+          - { file: "Test_integerness.c" }
+          - { file: "Hofstadter_Q_sequence.c" }
+          - { file: "Numerical_integration-Adaptive_Simpsons_method.c" }
+          - { file: "Accumulator_factory.c" }
+          - { file: "Linear_congruential_generator.c" }
+          - { file: "Literals-Integer.c" }
+          - { file: "Sum_data_type.c" }
+          - { file: "Least_common_multiple.c" }
+          - { file: "Null_object.c" }
+          - { file: "Fast_Fourier_transform.c" }
+          - { file: "Display_a_linear_combination.c" }
+          - { file: "Tokenize_a_string_with_escaping.c" }
+          - { file: "Split_a_character_string_based_on_change_of_character.c" }
+          - { file: "Currying.c" }
+          - { file: "Mutual_recursion.c" }
+          - { file: "Text_processing-2.c" }
+          - { file: "Increment_a_numerical_string.c" }
+          - { file: "Jaro_distance.c" }
+          - { file: "Trigonometric_functions.c" }
+          - { file: "Repeat_a_string.c" }
+          - { file: "Non-continuous_subsequences.c" }
+          - { file: "Ray-casting_algorithm.c" }
+          - { file: "Terminal_control-Inverse_video.c" }
+          - { file: "Regular_expressions.c" }
+          - { file: "Ulam_spiral_(for_primes).c" }
+          - { file: "Binary_search.c" }
+          - { file: "Return_multiple_values.c" }
+          - { file: "Convex_hull.c" }
+          - { file: "Pascal_matrix_generation.c" }
+          - { file: "Combinations.c" }
+          - { file: "Factors_of_a_Mersenne_number.c" }
+          - { file: "Gapful_numbers.c" }
+          - { file: "Sorting_algorithms-Patience_sort.c" }
+          - { file: "Create_an_object_at_a_given_address.c" }
+          - { file: "Combinations_with_repetitions.c" }
+          - { file: "Search_a_list.c" }
+          - { file: "Chinese_remainder_theorem.c" }
+          - { file: "Set.c" }
+          - { file: "Soundex.c" }
+          - { file: "Exponentiation_operator.c" }
+          - { file: "Largest_int_from_concatenated_ints.c" }
+          - { file: "A*_search_algorithm.c" }
+          - { file: "Fibonacci_word-fractal.c" }
+          - { file: "Loops-Increment_loop_index_within_loop_body.c" }
+          - { file: "Ordered_Partitions.c" }
+          - { file: "Sorting_Algorithms-Circle_Sort.c" }
+          - { file: "Chaocipher.c" }
+          - { file: "Sorting_algorithms-Merge_sort.c" }
+          - { file: "Gaussian_elimination.c" }
+          - { file: "Range_expansion.c" }
+          - { file: "Pernicious_numbers.c" }
+          - { file: "Calculating_the_value_of_e.c" }
+          - { file: "Orbital_elements.c" }
+          - { file: "Sorting_algorithms-Shell_sort.c" }
+          - { file: "Reverse_a_string.c" }
+          - { file: "One-dimensional_cellular_automata.c" }
+          - { file: "Map_range.c" }
+          - { file: "Magic_squares_of_doubly_even_order.c" }
+          - { file: "Date_manipulation.c" }
+          - { file: "Pascals_triangle.c" }
+          - { file: "String_append.c" }
+          - { file: "Permutations-Rank_of_a_permutation.c" }
+          - { file: "4-rings_or_4-squares_puzzle.c" }
+          - { file: "Permutations.c" }
+          - { file: "Tokenize_a_string.c" }
+          - { file: "ABC_Problem.c" }
+          - { file: "Deal_cards_for_FreeCell.c" }
+          - { file: "Quine.c" }
+          - { file: "Jensens_Device.c" }
+          - { file: "Averages-Mode.c" }
+          - { file: "Unicode_variable_names.c" }
+          - { file: "99_Bottles_of_Beer.c" }
+          - { file: "Sorting_algorithms-Bubble_sort.c" }
+          - { file: "Power_set.c" }
+          - { file: "Resistor_mesh.c" }
+          - { file: "Perfect_shuffle.c" }
+          - { file: "Huffman_coding.c" }
+          - { file: "Copy_a_string.c" }
+          - { file: "Filter.c" }
+          - { file: "Faulhabers_triangle.c" }
+          - { file: "Five_weekends.c" }
+          - { file: "Quickselect_algorithm.c" }
+          - { file: "Temperature_conversion.c" }
+          - { file: "Kolakoski_sequence.c" }
+          - { file: "Vector_products.c" }
+          - { file: "Sequence:_smallest_number_greater_than_previous_term_with_exactly_n_divisors.c" }
+          - { file: "Averages-Pythagorean_means.c" }
+          - { file: "Infinity.c" }
+          - { file: "Numerical_integration-Gauss-Legendre_Quadrature.c" }
+          - { file: "Taxicab_numbers.c" }
+          - { file: "Four_bit_adder.c" }
+          - { file: "Zero_to_the_zero_power.c" }
+          - { file: "Dice_game_probabilities.c" }
+          - { file: "Ramseys_theorem.c" }
+          - { file: "Universal_Turing_machine.c" }
+          - { file: "Function_composition.c" }
+          - { file: "Sum_multiples_of_3_and_5.c" }
+          - { file: "Weird_numbers.c" }
+          - { file: "IBAN.c" }
+          - { file: "Jewels_and_Stones.c" }
+          - { file: "Van_Eck_sequence.c" }
+          - { file: "Remove_duplicate_elements.c" }
+          - { file: "Elliptic_curve_arithmetic.c" }
+          - { file: "Check_that_file_exists.c" }
+          - { file: "Array_length.c" }
+          - { file: "Welchs_t-test.c" }
+          - { file: "Averages-Mean_angle.c" }
+          - { file: "Matrix_transposition.c" }
+          - { file: "Data_Encryption_Standard.c" }
+          - { file: "Command-line_arguments.c" }
+          - { file: "Haversine_formula.c" }
+          - { file: "Unicode_strings.c" }
+          - { file: "Host_introspection.c" }
+          - { file: "Lucas-Lehmer_test.c" }
+          - { file: "Modular_inverse.c" }
+          - { file: "Loops-Wrong_ranges.c" }
+          - { file: "Find_the_missing_permutation.c" }
+          - { file: "Undefined_values.c" }
+          - { file: "Stern-Brocot_sequence.c" }
+          - { file: "Permutations-Derangements.c" }
+          - { file: "Law_of_cosines_-_triples.c" }
+          - { file: "Short-circuit_evaluation.c" }
+          - { file: "Character_codes.c" }
+          - { file: "Repeat.c" }
+          - { file: "Hilbert_curve.c" }
+          - { file: "Approximate_Equality.c" }
+          - { file: "Named_parameters.c" }
+          - { file: "Count_occurrences_of_a_substring.c" }
+          - { file: "Empty_program.c" }
+          - { file: "Sorting_algorithms-Strand_sort.c" }
+          - { file: "Smith_numbers.c" }
+          - { file: "Towers_of_Hanoi.c" }
+          - { file: "Inverted_index.c" }
+          - { file: "Burrows–Wheeler_transform.c" }
+          - { file: "Delete_a_file.c" }
+          - { file: "Catalan_numbers-Pascals_triangle.c" }
+          - { file: "Leap_year.c" }
+          - { file: "Roots_of_unity.c" }
+          - { file: "Anti-primes.c" }
+          - { file: "Digital_root-Multiplicative_digital_root.c" }
+          - { file: "Catamorphism.c" }
+          - { file: "Long_multiplication.c" }
+          - { file: "Terminal_control-Preserve_screen.c" }
+          - { file: "Pangram_checker.c" }
+          - { file: "Elementary_cellular_automaton-Random_Number_Generator.c" }
+          - { file: "Convert_decimal_number_to_rational.c" }
+          - { file: "Knuth_shuffle.c" }
+          - { file: "Equilibrium_index.c" }
+          - { file: "Continued_fraction.c" }
+          - { file: "Averages-Root_mean_square.c" }
+          - { file: "Find_the_intersection_of_two_lines.c" }
+          - { file: "Natural_sorting.c" }
+          - { file: "Delegates.c" }
+          - { file: "Comma_quibbling.c" }
+          - { file: "Sorting_algorithms-Cycle_sort.c" }
+          - { file: "Negative_base_numbers.c" }
+          - { file: "Balanced_ternary.c" }
+          - { file: "Draw_a_cuboid.c" }
+          - { file: "Terminal_control-Coloured_text.c" }
+          - { file: "Modular_arithmetic.c" }
+          - { file: "Memory_allocation.c" }
+          - { file: "The_Twelve_Days_of_Christmas.c" }
+          - { file: "Generate_lower_case_ASCII_alphabet.c" }
+          - { file: "Here_document.c" }
+          - { file: "Binary_digits.c" }
+          - { file: "Runge-Kutta_method.c" }
+          - { file: "Largest_number_divisible_by_its_digits.c" }
+          - { file: "Iterated_digits_squaring.c" }
+          - { file: "Variable-length_quantity.c" }
+          - { file: "Sort_using_a_custom_comparator.c" }
+          - { file: "Range_extraction.c" }
+          - { file: "Playing_cards.c" }
+          - { file: "Averages-Arithmetic_mean.c" }
+          - { file: "Shortest_common_supersequence.c" }
+          - { file: "Reverse_words_in_a_string.c" }
+          - { file: "LU_decomposition.c" }
+          - { file: "Almost_prime.c" }
+          - { file: "Kahan_summation.c" }
+          - { file: "Cartesian_product_of_two_or_more_lists.c" }
+          - { file: "Eulers_identity.c" }
+          - { file: "Random_numbers.c" }
+          - { file: "Sorting_algorithms-Bead_sort.c" }
+          - { file: "Knapsack_problem-Continuous.c" }
+          - { file: "Bacon_cipher.c" }
+          - { file: "Greatest_subsequential_sum.c" }
+          - { file: "Multisplit.c" }
+          - { file: "Forward_difference.c" }
+          - { file: "Paraffins.c" }
+          - { file: "Extract_file_extension.c" }
+          - { file: "Rename_a_file.c" }
+          - { file: "Problem_of_Apollonius.c" }
+          - { file: "Base64_decode_data.c" }
+          - { file: "Hofstadter_Figure-Figure_sequences.c" }
+          - { file: "100_doors.c" }
+          - { file: "Case-sensitivity_of_identifiers.c" }
+          - { file: "Sum_to_100.c" }
+          - { file: "Binary_strings.c" }
+          - { file: "Loops-N_plus_one_half.c" }
+          - { file: "N-queens_problem.c" }
+          - { file: "Evaluate_binomial_coefficients.c" }
+          - { file: "Luhn_test_of_credit_card_numbers.c" }
+          - { file: "Check_output_device_is_a_terminal.c" }
+          - { file: "Water_collected_between_towers.c" }
+          - { file: "Ternary_logic.c" }
+          - { file: "Rep-string.c" }
+          - { file: "Parametric_polymorphism.c" }
+          - { file: "Semiprime.c" }
+          - { file: "Babbage_problem.c" }
+          - { file: "Multiplication_tables.c" }
+          - { file: "Loop_over_multiple_arrays_simultaneously.c" }
+          - { file: "Determinant_and_permanent.c" }
+          - { file: "Hash_from_two_arrays.c" }
+          - { file: "Balanced_brackets.c" }
+          - { file: "Formal_power_series.c" }
+          - { file: "Reduced_row_echelon_form.c" }
+          - { file: "Zeckendorf_number_representation.c" }
+          - { file: "Van_der_Corput_sequence.c" }
+          - { file: "Permutations_by_swapping.c" }
+          - { file: "Digital_root.c" }
+          - { file: "Stem-and-leaf_plot.c" }
+          - { file: "Create_an_HTML_table.c" }
+          - { file: "State_name_puzzle.c" }
+          - { file: "Top_rank_per_group.c" }
+          - { file: "String_case.c" }
+          - { file: "Hello_world-Newline_omission.c" }
+          - { file: "Multifactorial.c" }
+          - { file: "Check_input_device_is_a_terminal.c" }
+          - { file: "Record_sound.c" }
+          - { file: "Deepcopy.c" }
+          - { file: "Cheryls_Birthday.c" }
+          - { file: "AKS_test_for_primes.c" }
+          - { file: "Print_debugging_statement.c" }
+          - { file: "Cramers_rule.c" }
+          - { file: "Knights_tour.c" }
+          - { file: "Dijkstras_algorithm.c" }
+          - { file: "Environment_variables.c" }
+          - { file: "Thieles_interpolation_formula.c" }
+          - { file: "Thue-Morse.c" }
+          - { file: "Diversity_prediction_theorem.c" }
+          - { file: "Extreme_floating_point_values.c" }
+          - { file: "Circles_of_given_radius_through_two_points.c" }
+          - { file: "Old_Russian_measure_of_length.c" }
+          - { file: "Feigenbaum_constant_calculation.c" }
+          - { file: "List_rooted_trees.c" }
+          - { file: "Parsing-RPN_calculator_algorithm.c" }
+          - { file: "Inverted_syntax.c" }
+          - { file: "Set_of_real_numbers.c" }
+          - { file: "Longest_increasing_subsequence.c" }
+          - { file: "Idiomatically_determine_all_the_lowercase_and_uppercase_letters.c" }
+          - { file: "Sierpinski_triangle.c" }
+          - { file: "Sort_an_array_of_composite_structures.c" }
+          - { file: "Caesar_cipher.c" }
+          - { file: "Integer_overflow.c" }
+          - { file: "Show_Ascii_table.c" }
+          - { file: "JortSort.c" }
+          - { file: "Egyptian_division.c" }
+          - { file: "P-value_correction.c" }
+          - { file: "Roman_numerals-Decode.c" }
+          - { file: "Determine_if_a_string_has_all_the_same_characters.c" }
+          - { file: "Holidays_related_to_Easter.c" }
+          - { file: "Topological_sort.c" }
+          - { file: "Number_names.c" }
+          - { file: "Hello_world-Text.c" }
+          - { file: "McNuggets_Problem.c" }
+          - { file: "Attractive_numbers.c" }
+          - { file: "Sudoku.c" }
+          - { file: "Sum_digits_of_an_integer.c" }
+          - { file: "CSV_to_HTML_translation.c" }
+          - { file: "Probabilistic_choice.c" }
+          - { file: "Cycle_detection.c" }
+          - { file: "Terminal_control-Ringing_the_terminal_bell.c" }
+          - { file: "Program_name.c" }
+          - { file: "Population_count.c" }
+          - { file: "Hello_world-Standard_error.c" }
+          - { file: "Formatted_numeric_output.c" }
+          - { file: "Euler_method.c" }
+          - { file: "Harshad_or_Niven_series.c" }
+          - { file: "Determine_if_a_string_has_all_unique_characters.c" }
+          - { file: "Terminal_control-Unicode_output.c" }
+          - { file: "Sequence:_smallest_number_with_exactly_n_divisors.c" }
+          # Substring.c Could not compile
+          - { file: "Substring.c" }
+          - { file: "Find_the_intersection_of_a_line_with_a_plane.c" }
+          - { file: "Visualize_a_tree.c" }
+          - { file: "Run-length_encoding.c" }
+          - { file: "Cantor_set.c" }
+          - { file: "Priority_queue.c" }
+          - { file: "Pascals_triangle-Puzzle.c" }
+          - { file: "Write_language_name_in_3D_ASCII.c" }
+          - { file: "Roman_numerals-Encode.c" }
+          - { file: "Phrase_reversals.c" }
+          - { file: "String_prepend.c" }
+          - { file: "Matrix_chain_multiplication.c" }
+          - { file: "Calendar.c" }
+          - { file: "ISBN13_check_digit.c" }
+          - { file: "Strip_control_codes_and_extended_characters_from_a_string.c" }
+          - { file: "Square_but_not_cube.c" }
+          - { file: "Sexy_primes.c" }
+          - { file: "Chebyshev_coefficients.c" }
+          - { file: "Exponentiation_order.c" }
+          - { file: "Factors_of_an_integer.c" }
+          - { file: "Subtractive_generator.c" }
+          - { file: "Exceptions-Catch_an_exception_thrown_in_a_nested_call.c" }
+          - { file: "Deconvolution-1D.c" }
+
+
+          # Add the others here
+
+  - name: wasm-mutate-template
+    activeDeadlineSeconds: 7200
+    retryStrategy:
+      limit: 2
+    inputs:
+
+      parameters:
+      - name: file
+      artifacts:
+      - name: data
+        path: "/{{inputs.parameters.file}}"
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "valid/no_input/{{inputs.parameters.file}}"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+    outputs:
+      artifacts:
+      - name: variants
+        path: /variants.zip
+        optional: true
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "/variants/{{inputs.parameters.file}}/variants.zip"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+    script:
+      image: jacarte/wm-image:latest
+      command: [bash]
+      #resources:
+      #  requests:
+      #    memory: "0"
+      #    cpu: 1.2
+      source: |
+
+        cd /
+
+        # install minio mc
+        mkdir -p $HOME/minio-binaries
+        wget -O $HOME/minio-binaries/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+        ls
+        echo "======"
+        chmod +x $HOME/minio-binaries/mc
+        export PATH=$PATH:$HOME/minio-binaries/
+
+
+        mc config host add exp http://minio-service.minio:3434 minio minio123
+        # check the output, if exist, then exit
+        if [[  $(mc ls "exp/wasm-mutate/variants/{{inputs.parameters.file}}/variants.zip" | wc -l) -gt 0 ]]
+        then
+            echo "Already exist. Skip"
+            # Check the number of oracles ?
+            exit 0
+          
+        fi
+
+        # Install 7z deps
+        apt-get update && apt-get install -y p7zip-full
+
+        # Insall wasm-tools
+        wget -O wasm-tools.gz https://github.com/Jacarte/tawasco/releases/download/0.1.4/wasm-tools-all-x86_64-linux-0.1.4.gz
+        wget -O stacking.gz https://github.com/Jacarte/tawasco/releases/download/0.2/stacking-all-x86_64-linux-0.2.gz
+
+        7z x stacking.gz
+        chmod +x stacking
+        mv stacking /usr/local/bin/stacking
+
+        # Extract wasm-tools
+        7z x wasm-tools.gz
+        chmod +x wasm-tools
+        mv wasm-tools /usr/local/bin/wasm-tools
+
+        ls -la /usr/local/bin
+        wasm-tools --version
+
+        # Compile to wasi-wasm
+        mkdir -p out
+        wasi-sdk/bin/clang "/{{inputs.parameters.file}}" -Wl,--allow-undefined -o "out/{{inputs.parameters.file}}.wasm"
+        ls .
+
+        mkdir -p out
+        start_time=$(date +%s)
+        # Set random seed
+        SEED=640
+        ulimit -n
+        ulimit -S
+
+        timeout --foreground 3600 RUST_LOG=debug stacking "out/{{inputs.parameters.file}}.wasm" "out/$NAME" --seed $SEED --count 1000000 -v 1 --chaos-mode   --check-io 2> "out/$NAME.log.txt"
+
+        7z a  -tzip /variants.zip out/
