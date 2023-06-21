@@ -181,7 +181,7 @@ impl Stacking {
                                     self.fuel,
                                     self.check_mem
                                 ) {
-                                    break;
+                                    continue;
                                 }
                             }
                             // The val is the value is the wasm + the hash of the previous one
@@ -210,8 +210,8 @@ impl Stacking {
                                                 self.current = (wasm, usize::from_le_bytes(index.as_slice().try_into().unwrap()));
                                                 self.index  = self.current.1 + 1;
                                             
-                                                eprintln!("=== CHAOS {}", self.index);
-                                                break;
+                                                eprintln!("=== CHAOS {}", self.index - 1);
+                                                continue;
                                             }
                                             Err(e) => {
                                                 eprintln!("Error {}", e);
@@ -450,9 +450,9 @@ mod eval {
                 let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
                 let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
         
+                eprintln!("Err {} {}", stdout, stderr);
                 drop(guardout);
                 drop(guarderr);
-                eprintln!("Err {}", stderr);
                 None
             }
         }
