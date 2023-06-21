@@ -69,6 +69,13 @@ struct Options {
     #[arg(long = "check-mem", default_value = "false")]
     check_mem: bool,
 
+
+
+    /// Take X variants from parent only. Only available if chaos mode is true
+    #[arg(long = "variants-per-parent", default_value = "10")]
+    variants_per_parent: usize,
+
+
     /// The output Wasm binary.
     output: PathBuf,
 }
@@ -89,7 +96,8 @@ struct Stacking {
     check_mem: bool,
     // The hashes will prevent regression and non performed transformations
     hashes: sled::Db,
-    chaos_mode: bool
+    chaos_mode: bool,
+    variants_per_parent: usize,
 }
 
 impl Stacking {
@@ -103,7 +111,8 @@ impl Stacking {
         check_io: bool,
         fuel: u64,
         chaos_mode: bool,
-        check_mem: bool
+        check_mem: bool,
+        variants_per_parent: usize,
     ) -> Self {
         // Remove db if exist
         if remove_cache {
@@ -140,12 +149,13 @@ impl Stacking {
             check_mem,
             count,
             rnd: SmallRng::seed_from_u64(seed),
+            variants_per_parent,
             // Set the cache size to 3GB
             hashes: config.open().expect("Could not create external cache"),
         }
     }
 
-    pub fn next(&mut self) {
+    pub fn next(&mut self, chaos_cb: impl Fn(&Vec<u8>, &Vec<u8>),) {
         // Mutate
         let mut wasmmutate = WasmMutate::default();
         let mut wasmmutate = wasmmutate.preserve_semantics(true);
@@ -154,12 +164,18 @@ impl Stacking {
         eprintln!("Seed {}", seed);
         let mut wasmmutate = wasmmutate.seed(seed);
         let cp = self.current.clone();
-        let wasm = wasmmutate.run(&cp.0);
+        let origwasm = cp.0.clone();
+        let wasm = wasmmutate.run(&origwasm);
         // 
+
+        // chaos_cb(&origwasm, &self.original);
+
+        let hash = blake3::hash(&origwasm);
+        eprintln!("Mutating {}", hash);
         match wasm {
             Ok(it) => {
                 // Get the first one only
-                for w in it {
+                for w in it.take(self.variants_per_parent) {
                     match w {
                         Ok(b) => {
                             // Check if the hash was not generated before
@@ -169,7 +185,7 @@ impl Stacking {
                             if let Ok(true) = self.hashes.contains_key(&hash) {
                                 // eprintln!("Already contained");
                                 // We already generated this hash, so we skip it
-
+                                
                                 continue;
                             }
 
@@ -181,7 +197,7 @@ impl Stacking {
                                     self.fuel,
                                     self.check_mem
                                 ) {
-                                    continue;
+                                    break;
                                 }
                             }
                             // The val is the value is the wasm + the hash of the previous one
@@ -211,6 +227,9 @@ impl Stacking {
                                                 self.index  = self.current.1 + 1;
                                             
                                                 eprintln!("=== CHAOS {}", self.index - 1);
+                                                eprintln!("=== CHAOS COUNT {}", self.hashes.len());
+                                                // Generate the file here already
+                                                chaos_cb(&b, &origwasm);
                                                 continue;
                                             }
                                             Err(e) => {
@@ -271,32 +290,23 @@ fn main() {
         opts.check_io,
         opts.fuel,
         opts.chaos_mode,
-        opts.check_mem
+        opts.check_mem,
+        opts.variants_per_parent
     );
 
     let mut C = 0;
     loop {
-        stack.next();
-
-        // TODO if chaos mode... iterate over all DB keys and save all
-        if opts.chaos_mode {
-            let hash = blake3::hash(&stack.current.0);
-            let name = format!("{}.{}.chaos.wasm", hash, stack.index);
+        stack.next(|new, parent|{
+            let hash = blake3::hash(&new);
+            let hash2 = blake3::hash(&parent);
+            let name = format!("{}.{}.{}.chaos.wasm", opts.output.to_str().unwrap(), hash2, hash);
             // Write the current to fs
-            std::fs::write(&name, stack.current.0.clone())
+            std::fs::write(&name, new)
                 .expect("Could not write the output file");
 
-            C += 1;
+        });
 
-            if C % 100 == 99 {
-                eprintln!("Count {}", C);
-            }
-            if C == opts.count {
-                eprintln!("{} {}", C, opts.count);
-                break;
-            }
-        }
-        else {
+        if !opts.chaos_mode {
             if stack.index % opts.step == 0 {
                 let name = format!("{}.{}.wasm", opts.output.to_str().unwrap(), stack.index);
                 // Write the current to fs
@@ -304,9 +314,6 @@ fn main() {
                     .expect("Could not write the output file");
 
                 eprintln!("=== STACKED");
-            }
-            if stack.index == opts.count {
-                break;
             }
         }
     }
@@ -450,7 +457,7 @@ mod eval {
                 let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
                 let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
         
-                eprintln!("Err {} {}", stdout, stderr);
+                eprintln!("Runtime error {e} {} {}", stdout, stderr);
                 drop(guardout);
                 drop(guarderr);
                 None
