@@ -70,7 +70,7 @@ jobs:
 
 
       - name: Build CLI ${{ matrix.os }}
-        run: cd wasmtime && git submodule update --init && cd ../ && cd host_based/host && cargo build --release --features sequential --target ${{ matrix.target }}
+        run: cd wasmtime && git submodule update --init && cd ../ && cd host_based/host && cargo build --release --no-default-features --features sequential --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
