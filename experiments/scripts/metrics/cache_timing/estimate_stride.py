@@ -24,7 +24,9 @@ def estimate_stride_size(f, t):
         r, c = BER("My password", ch.stdout.decode())
         AVG += 1 - r
         print(t,  ch.stdout.decode(), 1-r, 11-c)
+        sys.stderr.write("%s %s %s\n"%(t,  ch.stdout.decode(), 1-r, 11-c))
     print(AVG/NUM)
+    return AVG/NUM
         
         
 
@@ -35,4 +37,5 @@ def estimate_stride_size(f, t):
 if __name__ == "__main__":
     f = sys.argv[1]
     size = int(sys.argv[2])
-    estimate_stride_size(f, size)
+    r = estimate_stride_size(f, size)
+    sys.stderr.write("%s\n"%(r, ))
