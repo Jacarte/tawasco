@@ -1,0 +1,1 @@
+This folder contains the Wasm used to test the defensive capabilities of wasm-mutate

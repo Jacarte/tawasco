@@ -266,6 +266,7 @@ pub fn execute_wasm(path: String) {
     // TODO set this option if flag
     
     let mut config = config.with_host_memory(Arc::new(allocator));
+    let config = config.cranelift_opt_level(wasmtime::OptLevel::None);
     // let mut config = config.parallel_compilation(false);
     let mut config = config.memory_init_cow(true);
     
