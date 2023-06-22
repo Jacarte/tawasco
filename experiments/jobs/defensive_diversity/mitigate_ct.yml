@@ -1,0 +1,189 @@
+# TODO
+# Try with 100 seeds for 10, 100, 1000, 2000, 10000 stacked variants = (5*100) binaries... then we can generalize
+
+# 1 - Generate the variants based on the number of stacked mutations
+# 2 - Execute the variants
+# 3 - Collect the BER records
+# 
+# After finding the best number of stacked, we can do a bisection on the number of stacked variants
+# Check if the variant is resilient after optimizing it with binaryen
+
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: wasm-wbc-mitigation-1-
+spec:
+  entrypoint: per-file
+  parallelism: 30
+  templates:
+  - name: per-file
+    steps:
+    - - name: measure-time
+        template: measure-time-template
+        arguments:
+          parameters:
+            - name: file
+              value: "{{ item.file }}"
+            - name: stacked
+              value: "{{ item.stacked }}"
+            - name: seed
+              value: "{{ item.seed }}"
+        withItems:
+          # Load from file
+          
+          - { file: "sp.wasm", stacked: "0",  seed: "10" }
+          - { file: "eviction.wasm", stacked: "0",  seed: "10" }
+          
+
+  - name: measure-time-template
+    retryStrategy:
+      limit: 2
+    inputs:
+
+      parameters:
+      - name: file
+      - name: stacked
+      - name: seed
+      artifacts:
+      - name: data
+        path: "/input.wasm"
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "rq3/wasms/{{inputs.parameters.file}}"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+          
+    outputs:
+      artifacts:
+      - name: attacks
+        path: /timing
+        optional: true
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "/timing/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+      
+      - name: ber
+        path: /timing/ber.txt
+        optional: true
+        archive:
+          none: {}
+        s3:
+          bucket: wasm-mutate
+          endpoint: minio-service.minio:3434
+          insecure: true
+          # Avoid to mount the full metas_filtered folder in the container
+          key: "/timing_bers/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}.ber.txt"
+          accessKeySecret:
+            name: argo-artifacts
+            key: accesskey
+          secretKeySecret:
+            name: argo-artifacts
+            key: secretkey
+      
+    script:
+      image: jacarte/wm-image:latest
+      command: [bash]
+      # Comment out later if it holds
+      #
+      resources:
+        requests:
+          memory: "0"
+          cpu: 1
+      source: |
+
+        cd /
+
+        # install minio mc
+        mkdir -p $HOME/minio-binaries
+        wget -O $HOME/minio-binaries/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+        ls
+        echo "======"
+        chmod +x $HOME/minio-binaries/mc
+        export PATH=$PATH:$HOME/minio-binaries/
+
+        mc config host add exp http://minio-service.minio:3434 minio minio123
+
+        if [[  $(mc ls "exp/wasm-mutate/attacks/{{inputs.parameters.file}}_{{inputs.parameters.stacked}}_{{inputs.parameters.seed}}/sbox.result.txt" | wc -l) -gt 0 ]]
+        then
+            echo "Already exist. Skip"
+            # Check the number of oracles ?
+            exit 0
+          
+        fi
+        # Insall wasm-tools
+        # wget -O wasm-tools.gz https://github.com/bytecodealliance/wasm-tools/releases/download/wasm-tools-1.0.35/wasm-tools-1.0.35-x86_64-linux.tar.gz
+
+        # Install 7z deps
+        apt-get update && apt-get install -y p7zip-full
+
+        # Insall wasm-tools
+        wget -O wasm-tools.gz https://github.com/Jacarte/tawasco/releases/download/0.1.4/wasm-tools-all-x86_64-linux-0.1.4.gz
+        wget -O stacking.gz https://github.com/Jacarte/tawasco/releases/download/0.1.8/stacking-all-x86_64-linux-0.1.8.gz
+
+        7z x stacking.gz
+        chmod +x stacking
+        mv stacking /usr/local/bin/stacking
+
+        # Extract wasm-tools
+        7z x wasm-tools.gz
+        chmod +x wasm-tools
+        mv wasm-tools /usr/local/bin/wasm-tools
+
+        ls -la /usr/local/bin
+        wasm-tools --version
+
+        # Download wasmtime for compiling
+
+        wget -O wasmtime.gz https://github.com/Jacarte/tawasco/releases/download/0.1.8/wasmtime-x86_64-linux-0.1.8.gz || exit 1
+
+        rm -rf ./wasmtime || true
+
+        7z x wasmtime.gz || exit 1
+        chmod +x wasmtime
+        mv wasmtime /usr/local/bin/wasmtime
+        wasmtime --version
+
+        wget -O host_single.gz https://github.com/Jacarte/tawasco/releases/download/0.1.9/host_single-x86_64-linux-0.1.9.gz
+        7z x host_single.gz
+        chmod +x host_single
+        mv host_single /usr/local/bin/host_single
+
+
+        wget -O host.gz https://github.com/Jacarte/tawasco/releases/download/0.1.9/host-x86_64-linux-0.1.9.gz
+        7z x host.gz
+        chmod +x host
+        mv host /usr/local/bin/host
+
+
+
+        # Download PIN
+        # wget http://software.intel.com/sites/landingpage/pintool/downloads/pin-3.15-98253-gb56e429b1-gcc-linux.tar.gz
+        # tar xzf pin-3.15-98253-gb56e429b1-gcc-linux.tar.gz
+        # mv pin-3.15-98253-gb56e429b1-gcc-linux /opt
+        export PIN_ROOT=/opt/pin-3.15-98253-gb56e429b1-gcc-linux
+        # RUN echo -e "\nexport PIN_ROOT=/opt/pin-3.15-98253-gb56e429b1-gcc-linux" >> ~/.bashrc
+
+        # execute the timing attack
+        host /input.wasm
+
+        

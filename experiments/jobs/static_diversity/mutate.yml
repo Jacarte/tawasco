@@ -4,7 +4,7 @@ metadata:
   generateName: wasm-mutate-1-
 spec:
   entrypoint: per-file
-  parallelism: 50
+  parallelism: 40
   templates:
   - name: per-file
     steps:
@@ -436,7 +436,7 @@ spec:
           # Add the others here
 
   - name: wasm-mutate-template
-    activeDeadlineSeconds: 7200
+    # activeDeadlineSeconds: 36000
     retryStrategy:
       limit: 2
     inputs:
@@ -482,10 +482,10 @@ spec:
     script:
       image: jacarte/wm-image:latest
       command: [bash]
-      #resources:
-      #  requests:
-      #    memory: "0"
-      #    cpu: 1.2
+      resources:
+        requests:
+          memory: "1G"
+          cpu: 0.5
       source: |
 
         cd /
@@ -505,12 +505,18 @@ spec:
         then
             echo "Already exist. Skip"
             # Check the number of oracles ?
-            exit 0
+            # exit 0
           
         fi
 
         # Install 7z deps
-        apt-get update && apt-get install -y p7zip-full
+        apt-get update && apt-get install -y p7zip-full curl
+        # Install node 20.x
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt install -y nodejs
+        node --version || exit 1
+
+
 
         # Insall wasm-tools
         wget -O wasm-tools.gz https://github.com/Jacarte/tawasco/releases/download/0.1.4/wasm-tools-all-x86_64-linux-0.1.4.gz
@@ -526,12 +532,33 @@ spec:
         mv wasm-tools /usr/local/bin/wasm-tools
 
         ls -la /usr/local/bin
-        wasm-tools --version
+        wasm-tools --version || exit 1
+
+        wget -O wasmtime.gz https://github.com/Jacarte/tawasco/releases/download/0.1.8/wasmtime-x86_64-linux-0.1.8.gz || exit 1
+
+        rm -rf ./wasmtime || true
+
+        7z x wasmtime.gz || exit 1
+        chmod +x wasmtime
+        mv wasmtime /usr/local/bin/wasmtime
+        wasmtime --version || exit 1
+
+        # Download and test wasmtime
+
+        # Download and test wasm-opt
+
+        # Download and test nodejs
 
         # Compile to wasi-wasm
         mkdir -p out
         wasi-sdk/bin/clang "/{{inputs.parameters.file}}" -Wl,--allow-undefined -o "out/{{inputs.parameters.file}}.wasm"
         ls .
+
+
+        # Exit if node does not exist
+        node --version || exit 1
+
+
 
         mkdir -p out
         start_time=$(date +%s)
@@ -540,8 +567,44 @@ spec:
         ulimit -n
         ulimit -S
 
-        RUST_LOG=wasm_mutate=debug timeout --foreground 3600 stacking "out/{{inputs.parameters.file}}.wasm" "out/stacking.wasm" --seed $SEED --count 1000000 -v 1 --chaos-mode   --check-io 2> "out/log.txt"
+        RUST_LOG=wasm_mutate=debug timeout --foreground 21600 stacking "out/{{inputs.parameters.file}}.wasm" "out/stacking.wasm" --seed $SEED --count 1000000 -v 1 --chaos-mode   --check-io 2> "out/log.txt"
         
+        
+        # Download the instantiation with node to collect the V8 bytecode
+        mkdir -p /js
+        cd /js
+        # npm install -g wasi
+        wget -O index.js https://raw.githubusercontent.com/Jacarte/tawasco/main/experiments/scripts/index.js
+        cp "/out/{{inputs.parameters.file}}.wasm" input.wasm
+        node index.js || exit 1
+
+        echo "V8 working code"
+        cd /
+
+
+        # TODO Run the generation of wasm-opt here already, save error if crash  
+        # Generate the V8 code as well, save error if crash
+        echo "Running wasm-opt on $(ls /out/*.wasm | wc -l)"
+        find /out -name "*.wasm" -exec bash -c "wasm-opt {} -O4 --all-features  -o {}.opt 2>&1 > {}.opt.out && ls /out/*.opt* | wc -l" \;
+
+        # Now compile the opt to wat, to v8 and to cwasm as well
+        # Generate the wasmtime mc code as well
+        echo "Running wasmtime compile"
+        find /out -name "*.wasm" -exec  wasmtime compile {} --wasm-features all -o {}.cwasm \;
+        echo "Running wasmtime compile on opt code"
+        find /out -name "*.opt" -exec  wasmtime compile {}  --wasm-features all -o {}.cwasm_opt \;
+        echo "Collecting V8 code "
+        find /out -name "*.wasm" -exec  bash -c "(rm /js/input.wasm || true) && cp -i {} /js/input.wasm && cd /js && node --print-code --no-liftoff index.js 2>&1 > code.v8.txt && cp code.v8.txt {}v8.txt" \;
+        echo "Collecting V8 code on opt code"
+
+        find /out -name "*.opt" -exec  bash -c "(rm /js/input.wasm || true) && cp -i {} /js/input.wasm && cd /js && node --print-code --no-liftoff index.js 2>&1 > code.v8.txt && cp code.v8.txt {}v8.txt" \;
+
+        # Generate the wat code with offsets as well
+        # The -p flag will add the offset to the file. This is a way to identify custom sections adding to the Wasm in textual format
+        echo "Collecting Wats"
+        find /out -name "*.wasm" -exec  wasm-tools print -p {} -o {}.wat \;
+        find /out -name "*.opt" -exec  wasm-tools print -p {} -o {}.wat_opt \;
+
         du -h /out
         ls -la /out | wc -l
 

@@ -6,7 +6,7 @@ spec:
   entrypoint: per-file
   # The fingerprint is low, lets do them all at once
   # TODO, change if we start doing the pairwise comparison here...I would say no
-  parallelism: 400
+  parallelism: 50
   templates:
   - name: per-file
     steps:
@@ -545,7 +545,7 @@ spec:
 
       
   - name: wasm-mutate-template
-    activeDeadlineSeconds: 36000
+    activeDeadlineSeconds: 3600
     retryStrategy:
       limit: 1
     inputs:
@@ -573,7 +573,7 @@ spec:
             name: argo-artifacts
             key: secretkey
     script:
-      image: jacarte/ww:latest
+      image: jacarte/wm-image:latest
       command: [bash]
       source: |
 

@@ -363,11 +363,11 @@ spec:
         # mv the attack configs
 
         # mem_addr1_rw1_2_41376.attack_sbox.config
-        daredevil -c mem_addr1_rw1_*_*.attack_sbox.config > sbox.result.txt &
+        daredevil -c mem_addr1_rw1_*_*.attack_sbox.config > sbox.result.txt
         # mem_addr1_rw1_2_41376.attack_multinv.config
-        daredevil -c mem_addr1_rw1_*_*.attack_multinv.config > mulinv.result.txt &
+        daredevil -c mem_addr1_rw1_*_*.attack_multinv.config > mulinv.result.txt
 
-        wait
+        # wait
 
         wget -O BER.py https://gist.githubusercontent.com/Jacarte/faa4002a8dc59d0282a4c6ee8474c4eb/raw/c3131f4c79f4e9fa5d20d3b69c236861e0b8033b/BER.py
 
