@@ -20,6 +20,7 @@ def estimate_stride_size(f, t):
     for j in range(NUM):
         ch = subprocess.run(['host', f], stdout=subprocess.PIPE, env = {
             'TRIES': f'{t}',
+            **os.environ
         })
         r, c = BER("My password", ch.stdout.decode())
         AVG += 1 - r
