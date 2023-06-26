@@ -303,6 +303,22 @@ fn main() {
             // Write the current to fs
             std::fs::write(&name, new)
                 .expect("Could not write the output file");
+            
+            // Also save the cwasm
+            let mut config = wasmtime::Config::default();
+            let config = config.strategy(wasmtime::Strategy::Cranelift);
+            // We need to save the generated machine code to disk
+
+            // Create a new store
+            let engine = wasmtime::Engine::new(&config).unwrap();
+
+            let module = wasmtime::Module::new(&engine, &new).unwrap();
+
+            // Serialize it
+            // TODO check if it was already serialized, avoid compiling again
+            let serialized = module.serialize().unwrap();
+            // Save it to disk, get the filename from the argument path
+            std::fs::write(format!("{}{}.cwasm", opts.output.to_str().unwrap(), hash), serialized).unwrap();
 
         });
 
