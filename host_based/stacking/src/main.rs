@@ -202,7 +202,7 @@ impl Stacking {
                             }
                             // The val is the value is the wasm + the hash of the previous one
                             let val = vec![self.index.to_le_bytes().to_vec(), b.clone()].concat();
-                            let _ = self.hashes.insert(hash, val).expect("Failed to insert");
+                            let _ = self.hashes.insert(hash, b"1").expect("Failed to insert");
 
                             // Execute to see semantic equivalence
 
