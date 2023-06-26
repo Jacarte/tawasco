@@ -40,8 +40,8 @@ jobs:
             asset_name: host-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: x86_64-unknown-linux-gnu
-          - name: linux-ubuntu-16.04
-            os: ubuntu-16.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
+          - name: linux-ubuntu-18.04
+            os: ubuntu-18.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
             path: host_based/host/target/x86_64-unknown-linux-gnu/release/host
             asset_name: host-x86_64-linux-16.04-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
