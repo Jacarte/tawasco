@@ -509,10 +509,20 @@ mod eval {
                     Err(e) => {
                         let elapsed = now.elapsed();
 
-                        let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
-                        let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+
+                        let stdout = fs::read_to_string(stdout_file);
+                        let stderr = fs::read_to_string(stderr_file);
+
+                        match (stdout, stderr) {
+                            (Ok(stdout), Ok(stderr)) => {
+
+                                eprintln!("Runtime error {e} {} {}", stdout, stderr);
+                            }
+                            _ => {
+                                // do nothing
+                            }
+                        }
                 
-                        eprintln!("Runtime error {e} {} {}", stdout, stderr);
                         drop(guardout);
                         drop(guarderr);
                         return None
