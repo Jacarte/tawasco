@@ -232,7 +232,6 @@ impl Stacking {
                                                 let k = random_item.0;
                                                 // eprintln!("Random key {:?} out of {}", k, self.hashes.len());
                                                 let random_curr = random_item.1;
-                                                // eprintln!("Setting current");
                                                 // The val is the value is the wasm + the index in le bytes
                                                 let index = random_curr[0..8].to_vec();
                                                 let wasm = random_curr[8..].to_vec();
@@ -455,47 +454,52 @@ mod eval {
             store1.out_of_fuel_trap();
         }
 
-        let instance1 = linker.instantiate(&mut store1, &module).unwrap();
+        if let Ok(instance1) = linker.instantiate(&mut store1, &module) {
 
-        let func1 = instance1.get_func(&mut store1, "_start").unwrap();
+            if let Some(func1) = instance1.get_func(&mut store1, "_start") {
 
-        let now = std::time::Instant::now();
+                let now = std::time::Instant::now();
 
-        match func1.call(&mut store1, &mut [], &mut []) {
-            Ok(e) => {
-                let elapsed = now.elapsed();
+                match func1.call(&mut store1, &mut [], &mut []) {
+                    Ok(e) => {
+                        let elapsed = now.elapsed();
 
-                let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
-                let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
-        
-                drop(guardout);
-                drop(guarderr);
-        
-                // Get mem hash
-                let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
-        
-                Some((
-                    mem_hashes,
-                    glob_vals,
-                    stdout.into(),
-                    stderr.into(),
-                    module,
-                    instance1,
-                    elapsed,
-                ))
-            }
-            Err(e) => {
-                let elapsed = now.elapsed();
+                        let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
+                        let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+                
+                        drop(guardout);
+                        drop(guarderr);
+                
+                        // Get mem hash
+                        let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
+                
+                        return Some((
+                            mem_hashes,
+                            glob_vals,
+                            stdout.into(),
+                            stderr.into(),
+                            module,
+                            instance1,
+                            elapsed,
+                        ))
+                    }
+                    Err(e) => {
+                        let elapsed = now.elapsed();
 
-                let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
-                let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
-        
-                eprintln!("Runtime error {e} {} {}", stdout, stderr);
-                drop(guardout);
-                drop(guarderr);
-                None
+                        let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
+                        let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+                
+                        eprintln!("Runtime error {e} {} {}", stdout, stderr);
+                        drop(guardout);
+                        drop(guarderr);
+                        return None
+                    }
+                }
+
             }
         }
+
+        return None
         
     }
 
