@@ -70,7 +70,7 @@ jobs:
             path: host_based/stacking/target/x86_64-unknown-linux-gnu/release/stacking
             asset_name: stacking-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
-            features: --features only-runtime
+            features: --no-default-features --features only-runtime
             target: x86_64-unknown-linux-gnu
 
           - name: linux-18.04-runtime
@@ -78,7 +78,7 @@ jobs:
             path: host_based/stacking/target/x86_64-unknown-linux-gnu/release/stacking
             asset_name: stacking-18.04-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
-            features: --features only-runtime
+            features: --no-default-features --features only-runtime
               # - name: linux-arm64
               #os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
               # path: target/aarch64-unknown-linux-gnu/release/dtw-tools
@@ -90,7 +90,7 @@ jobs:
             path: host_based/stacking/target/x86_64-apple-darwin/release/stacking
             asset_name: stacking-x86_64-macos-${{ github.event.release.tag_name }}
             shasum_cmd: shasum -a 256
-            features: --features only-runtime
+            features: --no-default-features --features only-runtime
             target: x86_64-apple-darwin
           #- name: windows
           #  os: windows-latest
