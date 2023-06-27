@@ -70,11 +70,18 @@ struct Options {
     check_mem: bool,
 
 
-
     /// Take X variants from parent only. Only available if chaos mode is true
     #[arg(long = "variants-per-parent", default_value = "10")]
     variants_per_parent: usize,
 
+    /// Uses wasm-mutate preserving semantics
+    #[arg(long = "no-preserve-semantics", default_value = "false", action)]
+    no_preserve_semantics: bool,
+
+
+    /// Saves the default compiled Wasm binary
+    #[arg(long = "save-compiling", default_value = "false", action)]
+    save_compiling: bool,
 
     /// The output Wasm binary.
     output: PathBuf,
@@ -98,6 +105,8 @@ struct Stacking {
     hashes: sled::Db,
     chaos_mode: bool,
     variants_per_parent: usize,
+    no_preserve_semantics: bool,
+    save_compiling: bool,
 }
 
 impl Stacking {
@@ -113,6 +122,8 @@ impl Stacking {
         chaos_mode: bool,
         check_mem: bool,
         variants_per_parent: usize,
+        save_compiling: bool,
+        no_preserve_semantics: bool
     ) -> Self {
         // Remove db if exist
         if remove_cache {
@@ -152,13 +163,15 @@ impl Stacking {
             variants_per_parent,
             // Set the cache size to 3GB
             hashes: config.open().expect("Could not create external cache"),
+            save_compiling,
+            no_preserve_semantics
         }
     }
 
     pub fn next(&mut self, chaos_cb: impl Fn(&Vec<u8>, &Vec<u8>),) {
         // Mutate
         let mut wasmmutate = WasmMutate::default();
-        let mut wasmmutate = wasmmutate.preserve_semantics(true);
+        let mut wasmmutate = wasmmutate.preserve_semantics(!self.no_preserve_semantics);
 
         let seed = self.rnd.gen();
         eprintln!("Seed {}", seed);
@@ -291,7 +304,9 @@ fn main() {
         opts.fuel,
         opts.chaos_mode,
         opts.check_mem,
-        opts.variants_per_parent
+        opts.variants_per_parent,
+        opts.save_compiling,
+        opts.no_preserve_semantics
     );
 
     let mut C = 0;
@@ -305,20 +320,22 @@ fn main() {
                 .expect("Could not write the output file");
             
             // Also save the cwasm
-            let mut config = wasmtime::Config::default();
-            let config = config.strategy(wasmtime::Strategy::Cranelift);
-            // We need to save the generated machine code to disk
+            if opts.save_compiling {
+                let mut config = wasmtime::Config::default();
+                let config = config.strategy(wasmtime::Strategy::Cranelift);
+                // We need to save the generated machine code to disk
 
-            // Create a new store
-            let engine = wasmtime::Engine::new(&config).unwrap();
+                // Create a new store
+                let engine = wasmtime::Engine::new(&config).unwrap();
 
-            let module = wasmtime::Module::new(&engine, &new).unwrap();
+                let module = wasmtime::Module::new(&engine, &new).unwrap();
 
-            // Serialize it
-            // TODO check if it was already serialized, avoid compiling again
-            let serialized = module.serialize().unwrap();
-            // Save it to disk, get the filename from the argument path
-            std::fs::write(format!("{}{}.cwasm", opts.output.to_str().unwrap(), hash), serialized).unwrap();
+                // Serialize it
+                // TODO check if it was already serialized, avoid compiling again
+                let serialized = module.serialize().unwrap();
+                // Save it to disk, get the filename from the argument path
+                std::fs::write(format!("{}{}.cwasm", opts.output.to_str().unwrap(), hash), serialized).unwrap();
+            }
 
         });
 
