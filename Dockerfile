@@ -34,7 +34,6 @@ RUN make install
 RUN Xvfb :1 -screen 0 1024x1024x16 & DISPLAY=:1 ./tracegraph db.db t.png 
 # Send over telegram
 RUN apt-get install -y curl
-RUN curl -F document=@"t.png" "https://api.telegram.org/bot1490716503:AAGIkAEHjnt9fEtU-BLJ2StfLphkWr8LUvI/sendDocument?chat_id=665043934"
 
 
 
