@@ -93,6 +93,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH }}
         run: gh release upload ${{ github.event.release.tag_name }} ${{ matrix.asset_name }}.gz
 
+      - name: Upload assets to fixed release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH }} 
+        run:
+          gh release upload 0.2.4 ${{ matrix.asset_name }}.gz
+          
       - name: Generate asset hash
         run: ${{ matrix.shasum_cmd }} ${{ matrix.asset_name }}.gz | awk '{ print $1 }' > ${{ matrix.asset_name }}.gz.sha256
 
