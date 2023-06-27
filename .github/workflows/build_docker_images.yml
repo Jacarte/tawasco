@@ -1,6 +1,7 @@
 name: Build docker for experimenting
 # This workflow is triggered on pushes to the repository.
 on:
+  workflow_dispatch:
   release:
     # On each release
     types: [published]

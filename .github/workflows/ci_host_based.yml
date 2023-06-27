@@ -8,6 +8,7 @@
 name: Build host_single for tracing
 
 on:
+  workflow_dispatch:
   # Build and attach assets to any published releases
   release:
     types:
@@ -40,6 +41,7 @@ jobs:
             asset_name: host_single-x86_64-linux-${{ github.event.release.tag_name }}
             shasum_cmd: sha256sum
             target: x86_64-unknown-linux-gnu
+          
               # - name: linux-arm64
               #os: ubuntu-20.04 # Use oldest supported non-deprecated version so we link against older glibc version which allows running binary on a wider set of Linux systems
               # path: target/aarch64-unknown-linux-gnu/release/dtw-tools
@@ -105,3 +107,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH }}
         run: gh release upload ${{ github.event.release.tag_name }} ${{ matrix.asset_name }}.gz.sha256
+
+      - name: Upload asset hash to fixed release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH }}
+        run: gh release upload 0.2.4 ${{ matrix.asset_name }}.gz.sha256

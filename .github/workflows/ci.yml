@@ -8,6 +8,7 @@
 name: Build wasm-mutate runtime only
 
 on:
+  workflow_dispatch:
   # Build and attach assets to any published releases
   release:
     types:
