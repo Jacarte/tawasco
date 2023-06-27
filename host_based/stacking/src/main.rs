@@ -85,6 +85,10 @@ struct Options {
 
     /// The output Wasm binary.
     output: PathBuf,
+
+    /// Saves the execution stderr and stdout
+    #[arg(long = "save-io", default_value = "false", action)]
+    save_io: bool,
 }
 
 fn swap(current: &mut Vec<u8>, new_interesting: Vec<u8>) {
@@ -168,7 +172,7 @@ impl Stacking {
         }
     }
 
-    pub fn next(&mut self, chaos_cb: impl Fn(&Vec<u8>, &Vec<u8>),) {
+    pub fn next(&mut self, chaos_cb: impl Fn(&Vec<u8>, &Vec<u8>, &eval::ExecutionResult),) {
         // Mutate
         let mut wasmmutate = WasmMutate::default();
         let mut wasmmutate = wasmmutate.preserve_semantics(!self.no_preserve_semantics);
@@ -203,69 +207,74 @@ impl Stacking {
                             }
 
                             if let Some(original_state) = &self.original_state {
-                                if !eval::assert_same_evaluation(
+                                match eval::assert_same_evaluation(
                                     &original_state,
                                     &b,
                                     self.check_args.clone(),
                                     self.fuel,
                                     self.check_mem
                                 ) {
-                                    break;
-                                }
-                            }
-                            // The val is the value is the wasm + the hash of the previous one
-                            let val = vec![self.index.to_le_bytes().to_vec(), b.clone()].concat();
-                            let _ = self.hashes.insert(hash, val).expect("Failed to insert");
+                                    Some(st) => {
 
-                            // Execute to see semantic equivalence
+                                        // The val is the value is the wasm + the hash of the previous one
+                                        let val = vec![self.index.to_le_bytes().to_vec(), b.clone()].concat();
+                                        let _ = self.hashes.insert(hash, val).expect("Failed to insert");
 
-                            if self.chaos_mode {
-                                // TODO if chaos mode...select from the DB ?
-                                let random_item = self.rnd.gen_range(0..self.hashes.len());
-                                
-                                match self.hashes.iter().take(random_item)
-                                .next() {
-                                    Some(random_item) => {
+                                        // Execute to see semantic equivalence
 
-                                        match random_item {
-                                            Ok(random_item) => {
-                                                let k = random_item.0;
-                                                // eprintln!("Random key {:?} out of {}", k, self.hashes.len());
-                                                let random_curr = random_item.1;
-                                                // The val is the value is the wasm + the index in le bytes
-                                                let index = random_curr[0..8].to_vec();
-                                                let wasm = random_curr[8..].to_vec();
-                                                self.current = (wasm, usize::from_le_bytes(index.as_slice().try_into().unwrap()));
-                                                self.index  = self.current.1 + 1;
+                                        if self.chaos_mode {
+                                            // TODO if chaos mode...select from the DB ?
+                                            let random_item = self.rnd.gen_range(0..self.hashes.len());
                                             
-                                                eprintln!("=== CHAOS {}", self.index - 1);
-                                                eprintln!("=== CHAOS COUNT {}", self.hashes.len());
-                                                // Generate the file here already
-                                                chaos_cb(&b, &origwasm);
-                                                continue;
+                                            match self.hashes.iter().take(random_item)
+                                            .next() {
+                                                Some(random_item) => {
+
+                                                    match random_item {
+                                                        Ok(random_item) => {
+                                                            let k = random_item.0;
+                                                            // eprintln!("Random key {:?} out of {}", k, self.hashes.len());
+                                                            let random_curr = random_item.1;
+                                                            // The val is the value is the wasm + the index in le bytes
+                                                            let index = random_curr[0..8].to_vec();
+                                                            let wasm = random_curr[8..].to_vec();
+                                                            self.current = (wasm, usize::from_le_bytes(index.as_slice().try_into().unwrap()));
+                                                            self.index  = self.current.1 + 1;
+                                                        
+                                                            eprintln!("=== CHAOS {}", self.index - 1);
+                                                            eprintln!("=== CHAOS COUNT {}", self.hashes.len());
+                                                            // Generate the file here already
+                                                            chaos_cb(&b, &origwasm, &st);
+                                                            continue;
+                                                        }
+                                                        Err(e) => {
+                                                            eprintln!("Error {}", e);
+                                                            // We could not mutate the wasm, we skip it
+                                                            continue
+                                                        }
+                                                    }
+                                                }
+                                                None => {
+                                                    continue
+                                                }
+                                            };
+
+                                        } else {
+                                            self.current = (b.clone(), self.index + 1);
+                                            self.index += 1;
+                
+                                            if self.index % 10000 == 9999 {
+                                                eprintln!("{} mutations", self.index);
                                             }
-                                            Err(e) => {
-                                                eprintln!("Error {}", e);
-                                                // We could not mutate the wasm, we skip it
-                                                continue
-                                            }
+                
+                                            eprintln!("=== TRANSFORMED {}", self.index);
+                                            break;
                                         }
                                     }
                                     None => {
-                                        continue
+                                        break
                                     }
-                                };
-
-                            } else {
-                                self.current = (b.clone(), self.index + 1);
-                                self.index += 1;
-    
-                                if self.index % 10000 == 9999 {
-                                    eprintln!("{} mutations", self.index);
                                 }
-    
-                                eprintln!("=== TRANSFORMED {}", self.index);
-                                break;
                             }
                             
                         }
@@ -310,7 +319,7 @@ fn main() {
 
     let mut C = 0;
     loop {
-        stack.next(|new, parent|{
+        stack.next(|new, parent, rs|{
             let hash = blake3::hash(&new);
             let hash2 = blake3::hash(&parent);
             let name = format!("{}.{}.{}.chaos.wasm", opts.output.to_str().unwrap(), hash2, hash);
@@ -511,7 +520,7 @@ mod eval {
         original_result: &ExecutionResult,
         mutated_wasm: &[u8],
         args: Vec<String>,fuel: u64, check_mem: bool
-    ) -> bool {
+    ) -> Option<ExecutionResult> {
         match execute_single(mutated_wasm, args.clone(), fuel)
         {
                 
@@ -520,18 +529,18 @@ mod eval {
                 let (mem1, glob1, stdout1, stderr1, mod1, instance1, _) = original_result;
                 if *stdout1 != stdout2 || *stderr1 != stderr2 {
                     eprintln!("Std is not the same");
-                    return false;
+                    return None;
                 }
                 // Now we compare the stores
                 if check_mem {
                     if mem1.len() != mem2.len() {
                         eprintln!("Memories are not the same");
-                        return false;
+                        return None;
                     }
 
                     if glob1.len() != glob2.len() {
                         eprintln!("Globals are not the same");
-                        return false;
+                        return None;
                     }
 
                     // Compare the memories
@@ -539,7 +548,7 @@ mod eval {
                     for (m1, m2) in mem1.iter().zip(mem2.iter()) {
                         if m1 != m2 {
                             eprintln!("Memories are not the same");
-                            return false;
+                            return None;
                         }
                     }
 
@@ -547,12 +556,12 @@ mod eval {
                     for (g1, g2) in glob1.iter().zip(glob2.iter()) {
                         if ! assert_val_eq(&g1, &g2) {
                             eprintln!("Globals are not the same");
-                            return false;
+                            return None;
                         }
                     }
 
                     eprintln!("Invalid state");
-                    return false;
+                    return None;
                 };
                 // Compare the memories
 
@@ -560,9 +569,9 @@ mod eval {
 
                 eprintln!("Time {}ns", time2.as_nanos());
 
-                return true;
+                return Some((mem2, glob2,  stdout2, stderr2, _mod2, instance2, time2));
             }
-            _ => return false,
+            _ => return None,
         }
     }
 
