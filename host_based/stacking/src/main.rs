@@ -473,24 +473,38 @@ mod eval {
                     Ok(e) => {
                         let elapsed = now.elapsed();
 
-                        let stdout = fs::read_to_string(stdout_file).expect("Cannot read stdout");
-                        let stderr = fs::read_to_string(stderr_file).expect("Cannot read stderr");
+                        let stdout = fs::read_to_string(stdout_file);
+                        let stderr = fs::read_to_string(stderr_file);
+
+                        match (stdout, stderr) {
+                            (Ok(stdout), Ok(stderr)) => {
+
+                                // Get mem hash
+                                let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
+                        
+                                drop(guardout);
+                                drop(guarderr);
+
+                                return Some((
+                                    mem_hashes,
+                                    glob_vals,
+                                    stdout.into(),
+                                    stderr.into(),
+                                    module,
+                                    instance1,
+                                    elapsed,
+                                ))
+                            }
+                            _ => {
+                                eprintln!("Error reading stderr/out");
+                                drop(guardout);
+                                drop(guarderr);
+
+                                return None;
+                            }
+                        }
                 
-                        drop(guardout);
-                        drop(guarderr);
                 
-                        // Get mem hash
-                        let (mem_hashes, glob_vals) = assert_same_state(&module, &mut store1, instance1);
-                
-                        return Some((
-                            mem_hashes,
-                            glob_vals,
-                            stdout.into(),
-                            stderr.into(),
-                            module,
-                            instance1,
-                            elapsed,
-                        ))
                     }
                     Err(e) => {
                         let elapsed = now.elapsed();
