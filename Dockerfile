@@ -21,25 +21,27 @@ COPY Tracer/TracerPIN/ /TracerPIN
 RUN cp -a /TracerPIN/Tracer /usr/local/bin
 RUN	cp -a /TracerPIN/obj-* /usr/local/bin
 
-# Install cargo first
-RUN curl https://sh.rustup.rs -sSf > rustup.sh
-RUN chmod 755 rustup.sh
-RUN ./rustup.sh -y
-RUN apt-get install -y gcc clang
-RUN ~/.cargo/bin/rustup update
+
+# TracerGraph
+RUN apt-get install -y build-essential qt5-qmake qtbase5-dev-tools qtbase5-dev libsqlite3-dev xvfb
+COPY Tracer/TraceGraph/ /TraceGraph
+COPY Tracer/TraceGraph/db.db /TraceGraph/db.sb
+WORKDIR /TraceGraph
+RUN qmake -qt=5
+RUN make
+RUN make install
+# We test it
+RUN Xvfb :1 -screen 0 1024x1024x16 & DISPLAY=:1 ./tracegraph db.db t.png 
+# Send over telegram
+RUN apt-get install -y curl
+RUN curl -F document=@"t.png" "https://api.telegram.org/bot1490716503:AAGIkAEHjnt9fEtU-BLJ2StfLphkWr8LUvI/sendDocument?chat_id=665043934"
+
 
 
 # Install wasi-sdk
 COPY download_wasi_sdk.sh /download_wasi.sh
 RUN bash /download_wasi.sh
 
-
-# Install wasmtime
-# Copy our version of wasmtime :)
-# RUN curl https://wasmtime.dev/install.sh -sSf | bash
-RUN ~/.cargo/bin/rustup target add wasm32-wasi
-
-# RUN rm -rf /wasmtime_upstream
 
 WORKDIR /
 
