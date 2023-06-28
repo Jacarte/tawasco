@@ -11,7 +11,7 @@ def BER(k1, k2):
     return MISS / len(k1), MISS
 
 
-def estimate_stride_size(f, t):
+def estimate_stride_size(f, t, SECRET="My password"):
     # read the file
 
     AVG = 0
@@ -22,7 +22,7 @@ def estimate_stride_size(f, t):
             'TRIES': f'{t}',
             **os.environ
         })
-        r, c = BER("My password", ch.stdout.decode())
+        r, c = BER(SECRET, ch.stdout.decode())
         AVG += 1 - r
         print(t,  ch.stdout.decode(), 1-r, 11-c)
         sys.stderr.write("%s %s %s\n"%(t,  ch.stdout.decode(), 1-r, 11-c))
@@ -38,5 +38,6 @@ def estimate_stride_size(f, t):
 if __name__ == "__main__":
     f = sys.argv[1]
     size = int(sys.argv[2])
-    r = estimate_stride_size(f, size)
+    SECRET = sys.argv[3]
+    r = estimate_stride_size(f, size, SECRET)
     sys.stderr.write("%s\n"%(r, ))

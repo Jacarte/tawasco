@@ -1,0 +1,187 @@
+{
+    "CROW": {
+        "name": "CROW prime",
+        "projects": [
+            {
+                "name": "Rosetta code",
+                "description": "Description",
+                "modules": [
+                    {
+                        "name": "",
+                        "functions": [
+                            { "name": "p96", "variants_count": "220" },  
+    
+                            { "name": "p56", "variants_count": "192" },
+                            
+                            { "name": "p78", "variants_count": "159" }, 
+                            
+                            { "name": "p111", "variants_count": "144" }, 
+                            
+                            { "name": "p166", "variants_count": "101" },  
+                            
+                            { "name": "p122", "variants_count": "91" },  
+                            
+                            { "name": "p67", "variants_count": "89" },  
+                            
+                            { "name": "p68", "variants_count": "85" },  
+                            
+                            { "name": "p80", "variants_count": "78" }, 
+                            
+                            { "name": "p204", "variants_count": "77" },  
+                            
+                            { "name": "p183", "variants_count": "76" },  
+                            
+                            { "name": "p136", "variants_count": "62" }, 
+                            
+                            { "name": "p167", "variants_count": "46" },  
+                            
+                            { "name": "p226", "variants_count": "42" },  
+                            { "name": "p99", "variants_count": "38" },  
+                            
+                            { "name": "p18", "variants_count": "36" },  
+                            
+                            { "name": "p140", "variants_count": "29" },  
+                            
+                            { "name": "p59", "variants_count": "27" },  
+                            
+                            { "name": "p199", "variants_count": "21" }, 
+                            
+                            { "name": "p91", "variants_count": "21" }, 
+                            
+                            { "name": "p223", "variants_count": "21" },  
+                            
+                            { "name": "p168", "variants_count": "20" },  
+                            
+                            { "name": "p174", "variants_count": "18" }, 
+                            
+                            { "name": "p81", "variants_count": "17" },  
+                            
+                            { "name": "p141", "variants_count": "17" }, 
+                            
+                            { "name": "p108", "variants_count": "16" }, 
+                            
+                            { "name": "p98", "variants_count": "15" },  
+                            
+                            { "name": "p89", "variants_count": "14" },  
+                            
+                            { "name": "p36", "variants_count": "14" }, 
+                            
+                            { "name": "p135", "variants_count": "13" },  
+                            
+                            { "name": "p161", "variants_count": "12" }, 
+                            
+                            { "name": "p147", "variants_count": "12" }, 
+                            
+                            { "name": "p11", "variants_count": "10" },  
+                            
+                            { "name": "p125", "variants_count": "10" },  
+                            
+                            { "name": "p131", "variants_count": "9" }, 
+                            
+                            { "name": "p69", "variants_count": "9" }, 
+                            
+                            { "name": "p134", "variants_count": "9" }, 
+                            
+                            { "name": "p74", "variants_count": "9" },  
+                            
+                            { "name": "p79", "variants_count": "9" }, 
+                            
+                            { "name": "p33", "variants_count": "9" },  
+                            
+                            { "name": "p157", "variants_count": "9" } 
+                            
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "MEWE": {
+        "name": "MEWE prime",
+        "projects": [
+            {
+                "name": "qrcode-rust",
+                "description": "description",
+                "modules": [
+                    {
+                        "name": "qr_str",
+                        "function_count": 982,
+                        "functions": [
+                            {
+                                "name": "",
+                                "variants_count": 2092
+                            }
+                        ]
+                    },
+                    {
+                        "name": "qr_image",
+                        "function_count": 858,
+                        "functions": [
+                            {
+                                "name": "-",
+                                "variants_count": 2063
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "libsodium",
+                "description": "description",
+                "modules": [
+                    {
+                        "name": "encrypt",
+                        "function_count": 23,
+                        "functions": [
+                            {
+                                "name": "-",
+                                "variants_count": 56
+                            }
+                        ]
+                    }, 
+                    {
+                        "name": "decrypt",
+                        "function_count": 20,
+                        "functions": [
+                            {
+                                "name": "-",
+                                "variants_count": 49
+                            }
+                        ]
+                    }, 
+                    {
+                        "name": "random",
+                        "function_count": 8,
+                        "functions": [
+                            {
+                                "name": "-",
+                                "variants_count": 238
+                            }
+                        ]
+                    },
+                    {
+                        "name": "invert",
+                        "function_count": 8,
+                        "functions": [
+                            {
+                                "name": "-",
+                                "variants_count": 125
+                            }
+                        ]
+                    },
+                    
+                    {
+                        "name": "bin2base64",
+                        "function_count": 3,
+                        "functions": [
+                            {
+                                "name": "",
+                                "variants_count": 47
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}
