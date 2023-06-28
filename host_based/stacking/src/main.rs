@@ -1,4 +1,5 @@
 #![feature(internal_output_capture)]
+
 use anyhow::Context;
 use clap::Parser;
 use core::sync::atomic::Ordering::{Relaxed, SeqCst};
@@ -380,6 +381,40 @@ fn main() {
 
 // Somesort of the same as wasm-mutate fuzz
 mod eval {
+    use std::arch::asm;
+    #[cfg(all(target_arch = "x86_64"))]
+    use std::arch::x86_64::_mm_clflush;
+    #[cfg(all(target_arch = "x86_64"))]
+    use std::arch::x86_64::_mm_lfence;
+    #[cfg(all(target_arch = "x86_64"))]
+    use std::arch::x86_64::_mm_mfence;
+    #[cfg(all(target_arch = "x86_64"))]
+    use std::arch::x86_64::_rdtsc as builtin_rdtsc;
+
+
+    #[cfg(all(target_arch="x86_64"))]
+    pub fn _rdtsc() -> u64 {
+        let eax: u32;
+      let ecx: u32;
+      let edx: u32;
+      {
+        unsafe {
+          asm!(
+            "rdtscp",
+            lateout("eax") eax,
+            lateout("ecx") ecx,
+            lateout("edx") edx,
+            options(nomem, nostack)
+          );
+        }
+      }
+
+
+      let counter: u64 = (edx as u64) << 32 | eax as u64;
+      counter
+    }
+    
+        
     use std::fs;
     use std::hash::Hash;
     use std::sync::Arc;
@@ -403,6 +438,57 @@ mod eval {
         wasmtime_wasi::add_to_linker(&mut linker, |s| s).unwrap();
         // These methods are not in WASI by default, yet, let us assume they are
         // It is the same assumption of Swivel
+        let linker = linker
+        .func_wrap(
+            "env",
+            "_mm_clflush",
+            |mut caller: wasmtime::Caller<'_, _>, param: u32| {
+                // get the memory of the module
+                // This comes on the guest address space, we need to translate it to the host address space
+
+                let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+                let memory_data = memory.data(&mut caller);
+                let addr = &memory_data[param as usize] as *const u8;
+
+                // println!("Flush {:?}", addr);
+                // flush the real address of the memory index
+                unsafe {
+                    asm! {
+                       "clflush [{x}]",
+                       x = in(reg) addr
+                    }
+                }
+            },
+        )
+        .unwrap();
+
+    let linker = linker
+        .func_wrap(
+            "env",
+            "_mm_mfence",
+            |_caller: wasmtime::Caller<'_, _>| unsafe {
+                // println!("_mm_mfence");
+                _mm_mfence();
+            },
+        )
+        .unwrap();
+
+    let linker = linker
+        .func_wrap("env", "_rdtsc", |_caller: wasmtime::Caller<'_, _>| unsafe {
+            _rdtsc()
+        })
+        .unwrap();
+
+    let linker = linker
+        .func_wrap(
+            "env",
+            "_mm_lfence",
+            |_caller: wasmtime::Caller<'_, _>, _param: i32| unsafe {
+                _mm_lfence();
+            },
+        )
+        .unwrap();
+
         linker.clone()
     }
 
