@@ -55,6 +55,10 @@ struct Options {
     #[arg(long = "check-args")]
     check_args: Vec<String>,
 
+    /// IO check arguments. It will be for the original and the variant comparison if check_io is true. This options should be a string for stdout output script, each argument will be separated by a space.
+    #[arg(long = "args-generator")]
+    args_generator: Option<String>,
+
     /// Execution fuel. Somehow like a timeout
     #[arg(long = "fuel", default_value = "0")]
     fuel: u64,
@@ -111,6 +115,7 @@ struct Stacking {
     variants_per_parent: usize,
     no_preserve_semantics: bool,
     save_compiling: bool,
+    args_generator: Option<String>
 }
 
 impl Stacking {
@@ -127,7 +132,8 @@ impl Stacking {
         check_mem: bool,
         variants_per_parent: usize,
         save_compiling: bool,
-        no_preserve_semantics: bool
+        no_preserve_semantics: bool,
+        args_generator: Option<String>
     ) -> Self {
         // Remove db if exist
         if remove_cache {
@@ -168,7 +174,8 @@ impl Stacking {
             // Set the cache size to 3GB
             hashes: config.open().expect("Could not create external cache"),
             save_compiling,
-            no_preserve_semantics
+            no_preserve_semantics,
+            args_generator
         }
     }
 
@@ -208,11 +215,12 @@ impl Stacking {
 
                             if let Some(original_state) = &self.original_state {
                                 match eval::assert_same_evaluation(
-                                    &original_state,
+                                    &self.original,
                                     &b,
                                     self.check_args.clone(),
                                     self.fuel,
-                                    self.check_mem
+                                    self.check_mem,
+                                    self.args_generator.clone()
                                 ) {
                                     Some(st) => {
 
@@ -314,7 +322,8 @@ fn main() {
         opts.check_mem,
         opts.variants_per_parent,
         opts.save_compiling,
-        opts.no_preserve_semantics
+        opts.no_preserve_semantics,
+        opts.args_generator
     );
 
     let mut C = 0;
@@ -535,68 +544,135 @@ mod eval {
         return None
         
     }
+    use crate::process::ExitStatus;
+    use std::env::args;
+
+    fn get_args(
+        command: String
+    ) -> Vec<Vec<String>> {
+        // Write file to tmparg
+        eprintln!("Getting args from {}", command);
+        // Split the command by space
+        let command = command.split(" ").collect::<Vec<_>>();
+        let output = std::process::Command::new(&command[0])
+            .args(&command[1..])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()
+            .expect("Could not run the command");
+
+        
+        let cp = output.clone();
+        let mut r = vec![];
+        // Decode stdout as string
+        let stdout = String::from_utf8(cp.stdout).expect("Could not decode output");
+        let stderr = String::from_utf8(cp.stderr).expect("Could not decode stderr");
+        let stdout = stdout.trim().to_string();
+        // Split first by line
+        let stdout_split = stdout.split("\n");
+        for l in stdout_split {
+            let stdout_split = l.split(" ");
+            let stdout_split = stdout_split.map(String::from).collect::<Vec<_>>();
+            r.push(stdout_split);
+        }
+
+        // Split the output by the space
+
+        return r;
+    }
+    
+
+    fn assert_same_evaluation_single(
+        original_wasm: &[u8],
+        mutated_wasm: &[u8],
+        args: Vec<String>,fuel: u64, check_mem: bool
+    ) -> Option<ExecutionResult> {
+
+        match (execute_single(original_wasm, args.clone(), fuel), execute_single(mutated_wasm, args.clone(), fuel))
+        {
+                
+            (Some((mem1, glob1,  stdout1, stderr1, _mod1, instance1, time1)), Some((mem2, glob2,  stdout2, stderr2, _mod2, instance2, time2)))
+                => {
+
+                    if stdout1 != stdout2 || stderr1 != stderr2 {
+                        eprintln!("Std is not the same");
+                        return None;
+                    }
+                    // Now we compare the stores
+                    if check_mem {
+                        if mem1.len() != mem2.len() {
+                            eprintln!("Memories are not the same");
+                            return None;
+                        }
+
+                        if glob1.len() != glob2.len() {
+                            eprintln!("Globals are not the same");
+                            return None;
+                        }
+
+                        // Compare the memories
+                        // Zip them and compare the hashes in order
+                        for (m1, m2) in mem1.iter().zip(mem2.iter()) {
+                            if m1 != m2 {
+                                eprintln!("Memories are not the same");
+                                return None;
+                            }
+                        }
+
+                        // The same for globals
+                        for (g1, g2) in glob1.iter().zip(glob2.iter()) {
+                            if ! assert_val_eq(&g1, &g2) {
+                                eprintln!("Globals are not the same");
+                                return None;
+                            }
+                        }
+
+                        eprintln!("Invalid state");
+                        return None;
+                    };
+                    // Compare the memories
+
+                    // Compare the globals
+
+                    eprintln!("Time {}ns", time2.as_nanos());
+
+                    return Some((mem2, glob2,  stdout2, stderr2, _mod2, instance2, time2));
+                }
+            _ => return None,
+        }
+    }
 
     /// Compile, instantiate, and evaluate both the original and mutated Wasm.
     ///
     /// We should get identical results because we told `wasm-mutate` to preserve
     /// semantics.
     pub fn assert_same_evaluation(
-        original_result: &ExecutionResult,
+        original_wasm: &[u8],
         mutated_wasm: &[u8],
-        args: Vec<String>,fuel: u64, check_mem: bool
+        args: Vec<String>,fuel: u64, check_mem: bool,
+        args_generator: Option<String>,
     ) -> Option<ExecutionResult> {
-        match execute_single(mutated_wasm, args.clone(), fuel)
-        {
+        
+        // TODO Randomize args here
+        let mut r1 = None;
+        if let Some(command) = args_generator {
+            let argsall = get_args(command);
+            
+            // Iterate over the arguments
+            for ar in argsall {
+                let mut args = ar.clone();
                 
-        Some((mem2, glob2,  stdout2, stderr2, _mod2, instance2, time2))
-             => {
-                let (mem1, glob1, stdout1, stderr1, mod1, instance1, _) = original_result;
-                if *stdout1 != stdout2 || *stderr1 != stderr2 {
-                    eprintln!("Std is not the same");
-                    return None;
+                if let Some(r) = assert_same_evaluation_single(original_wasm, mutated_wasm, args, fuel, check_mem) {
+                    r1 = Some(r);
+                } else {
+                    // Shortcut
+                    return None
                 }
-                // Now we compare the stores
-                if check_mem {
-                    if mem1.len() != mem2.len() {
-                        eprintln!("Memories are not the same");
-                        return None;
-                    }
-
-                    if glob1.len() != glob2.len() {
-                        eprintln!("Globals are not the same");
-                        return None;
-                    }
-
-                    // Compare the memories
-                    // Zip them and compare the hashes in order
-                    for (m1, m2) in mem1.iter().zip(mem2.iter()) {
-                        if m1 != m2 {
-                            eprintln!("Memories are not the same");
-                            return None;
-                        }
-                    }
-
-                    // The same for globals
-                    for (g1, g2) in glob1.iter().zip(glob2.iter()) {
-                        if ! assert_val_eq(&g1, &g2) {
-                            eprintln!("Globals are not the same");
-                            return None;
-                        }
-                    }
-
-                    eprintln!("Invalid state");
-                    return None;
-                };
-                // Compare the memories
-
-                // Compare the globals
-
-                eprintln!("Time {}ns", time2.as_nanos());
-
-                return Some((mem2, glob2,  stdout2, stderr2, _mod2, instance2, time2));
             }
-            _ => return None,
         }
+        
+        return r1
     }
 
     fn assert_same_state(
