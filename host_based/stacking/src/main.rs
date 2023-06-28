@@ -653,9 +653,9 @@ mod eval {
         args: Vec<String>,fuel: u64, check_mem: bool,
         args_generator: Option<String>,
     ) -> Option<ExecutionResult> {
-        
-        // TODO Randomize args here
-        let mut r1 = None;
+        // Execute the first arguments first
+        let mut r1 = assert_same_evaluation_single(original_wasm, mutated_wasm, args.clone(), fuel, check_mem);
+
         if let Some(command) = args_generator {
             let argsall = get_args(command);
             
@@ -664,9 +664,10 @@ mod eval {
                 let mut args = ar.clone();
                 
                 if let Some(r) = assert_same_evaluation_single(original_wasm, mutated_wasm, args, fuel, check_mem) {
-                    r1 = Some(r);
+                    continue;
                 } else {
                     // Shortcut
+                    eprintln!("One input fails. {}", ar.join(" "));
                     return None
                 }
             }
