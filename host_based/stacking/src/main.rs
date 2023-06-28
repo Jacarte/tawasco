@@ -572,6 +572,8 @@ mod eval {
         // Split first by line
         let stdout_split = stdout.split("\n");
         for l in stdout_split {
+            // add a first argument 
+            let l = format!("first {}", l);
             let stdout_split = l.split(" ");
             let stdout_split = stdout_split.map(String::from).collect::<Vec<_>>();
             r.push(stdout_split);
