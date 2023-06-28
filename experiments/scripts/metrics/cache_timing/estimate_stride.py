@@ -3,6 +3,8 @@ import os
 import re
 import subprocess
 
+HOST = os.environ.get('HOST_SINGLE', 'host')
+
 def BER(k1, k2):
     MISS = 0
     for i, c in enumerate(k2):
@@ -18,7 +20,7 @@ def estimate_stride_size(f, t, SECRET="My password"):
     NUM = 100
     print(t, NUM)
     for j in range(NUM):
-        ch = subprocess.run(['host', f], stdout=subprocess.PIPE, env = {
+        ch = subprocess.run([HOST, f], stdout=subprocess.PIPE, env = {
             'TRIES': f'{t}',
             **os.environ
         })
@@ -41,3 +43,4 @@ if __name__ == "__main__":
     SECRET = sys.argv[3]
     r = estimate_stride_size(f, size, SECRET)
     sys.stderr.write("%s\n"%(r, ))
+    print(r)
