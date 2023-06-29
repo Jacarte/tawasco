@@ -422,7 +422,25 @@ fn main() {
                 std::fs::write(&name, stack.current.0.clone())
                     .expect("Could not write the output file");
 
+
                 eprintln!("=== STACKED");
+
+                if opts.save_compiling {
+                    let mut config = wasmtime::Config::default();
+                    let config = config.strategy(wasmtime::Strategy::Cranelift);
+                    // We need to save the generated machine code to disk
+    
+                    // Create a new store
+                    let engine = wasmtime::Engine::new(&config).unwrap();
+    
+                    let module = wasmtime::Module::new(&engine, &stack.current.0.clone()).unwrap();
+    
+                    // Serialize it
+                    // TODO check if it was already serialized, avoid compiling again
+                    let serialized = module.serialize().unwrap();
+                    // Save it to disk, get the filename from the argument path
+                    std::fs::write(format!("{}.{}.cwasm", opts.output.to_str().unwrap(), stack.index), serialized).unwrap();
+                }
             }
             
             if stack.index >= opts.count {
