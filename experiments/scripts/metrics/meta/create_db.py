@@ -64,7 +64,7 @@ def get_population_metadata(f):
         # Create the wasm instances here
 
         with db.atomic():
-            size = SQLITE_MAX_VARIABLE_NUMBER/2
+            size = SQLITE_MAX_VARIABLE_NUMBER//2 - 1
             # remove one to avoid issue if peewee adds some variable
             for i in range(0, len(ORM_DATA), size):
                 # table.insert_many(data[i:i+size]).upsert().execute()
@@ -83,7 +83,7 @@ def get_population_metadata(f):
                 print("Saving", I)
         
         with db.atomic():
-            size = SQLITE_MAX_VARIABLE_NUMBER/2
+            size = SQLITE_MAX_VARIABLE_NUMBER//2 - 1
             # remove one to avoid issue if peewee adds some variable
             for i in range(0, len(ORM_DATA), size):
                 # table.insert_many(data[i:i+size]).upsert().execute()
