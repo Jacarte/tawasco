@@ -36,7 +36,7 @@ def get_population_metadata(f):
         parent_hash = get_wasm_blake3_hash(zip_ref, parent)
         # Calculate the hash as blake3 of the bytestream
 
-        parent_instance = Wasm.create(parent=None, optimized=False, hash=parent_hash, name=parent, original=None, parent_name=None)
+        parent_instance = Wasm.create(parent=None, optimized=False, hash=parent_hash, name=parent, original=None, parent_name=None).co
 
         ORM_DATA = [
 
@@ -63,6 +63,11 @@ def get_population_metadata(f):
             meta[h]["files"].append(c)
         # Create the wasm instances here
 
+        print("Number of unique variants: ", len(set(meta)))
+
+        with open(f"results.json", "w") as jsonfile:
+            json.dump(meta, jsonfile, indent=4)
+            
         with db.atomic():
             size = 500
             # remove one to avoid issue if peewee adds some variable
@@ -108,25 +113,6 @@ def get_population_metadata(f):
         
         # Now update by the real path
 
-        print("Number of unique variants: ", len(set(meta)))
-
-        with open(f"results.json", "w") as jsonfile:
-            json.dump(meta, jsonfile, indent=4)
-        # extract some files that are equal
-        for h in meta:
-            if len(meta[h]['files']) > 1:
-                # extrat them
-                for fname in meta[h]['files']:
-                    # extract only the file
-                    source = zip_ref.open(fname)
-                    os.makedirs(os.path.join(f"out/{f}"), exist_ok=True)
-                    target = open(os.path.join(f"out/{f}", os.path.basename(fname)), "wb")
-                    with source, target:
-                        shutil.copyfileobj(source, target)
-
-                    # Extract the mutation history of all variants here
-                    # hist = extract_mutation_history(fname, zip_ref, f)
-                break
     # remove the file
     # os.remove(f"{f}.variants.zip")
 
