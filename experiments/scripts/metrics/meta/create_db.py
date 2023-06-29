@@ -36,7 +36,7 @@ def get_population_metadata(f):
         parent_hash = get_wasm_blake3_hash(zip_ref, parent)
         # Calculate the hash as blake3 of the bytestream
 
-        parent_instance = Wasm.create(parent=None, optimized=False, hash=parent_hash, name=parent, original=None, parent_name=None).co
+        parent_instance = Wasm.create(parent=None, optimized=False, hash=parent_hash, name=parent, original=None, parent_name=None)
 
         ORM_DATA = [
 
@@ -67,7 +67,7 @@ def get_population_metadata(f):
 
         with open(f"results.json", "w") as jsonfile:
             json.dump(meta, jsonfile, indent=4)
-            
+
         with db.atomic():
             size = 500
             # remove one to avoid issue if peewee adds some variable
