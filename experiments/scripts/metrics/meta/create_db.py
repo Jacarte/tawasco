@@ -64,7 +64,12 @@ def get_population_metadata(f):
         # Create the wasm instances here
 
         with db.atomic():
-            Wasm.bulk_create(ORM_DATA)
+            size = (SQLITE_MAX_VARIABLE_NUMBER // len(ORM_DATA[0])) -1
+            # remove one to avoid issue if peewee adds some variable
+            for i in range(0, len(ORM_DATA), size):
+                # table.insert_many(data[i:i+size]).upsert().execute()
+                Wasm.bulk_create(ORM_DATA[i:i+size])
+
         ORM_DATA = []
         wasm_instances =  Wasm.select()
         # Create and instance of Mutation info for each one
@@ -78,7 +83,11 @@ def get_population_metadata(f):
                 print("Saving", I)
         
         with db.atomic():
-            MutationInfo.bulk_create(ORM_DATA)
+            size = (SQLITE_MAX_VARIABLE_NUMBER // len(ORM_DATA[0])) -1
+            # remove one to avoid issue if peewee adds some variable
+            for i in range(0, len(ORM_DATA), size):
+                # table.insert_many(data[i:i+size]).upsert().execute()
+                MutationInfo.bulk_create(ORM_DATA[i:i+size])
 
 
         ORM_DATA = []
