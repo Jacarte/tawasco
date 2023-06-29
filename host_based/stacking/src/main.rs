@@ -109,6 +109,7 @@ struct Stacking {
     fuel: u64,
     count: usize,
     rnd: SmallRng,
+    check_io: bool,
     check_mem: bool,
     // The hashes will prevent regression and non performed transformations
     hashes: sled::Db,
@@ -134,7 +135,7 @@ impl Stacking {
         variants_per_parent: usize,
         save_compiling: bool,
         no_preserve_semantics: bool,
-        args_generator: Option<String>
+        args_generator: Option<String>,
     ) -> Self {
         // Remove db if exist
         if remove_cache {
@@ -176,11 +177,12 @@ impl Stacking {
             hashes: config.open().expect("Could not create external cache"),
             save_compiling,
             no_preserve_semantics,
-            args_generator
+            args_generator,
+            check_io
         }
     }
 
-    pub fn next(&mut self, chaos_cb: impl Fn(&Vec<u8>, &Vec<u8>, &eval::ExecutionResult),) {
+    pub fn next(&mut self, chaos_cb: impl Fn(&Vec<u8>, &Vec<u8>),) {
         // Mutate
         let mut wasmmutate = WasmMutate::default();
         let mut wasmmutate = wasmmutate.preserve_semantics(!self.no_preserve_semantics);
@@ -253,7 +255,7 @@ impl Stacking {
                                                             eprintln!("=== CHAOS {}", self.index - 1);
                                                             eprintln!("=== CHAOS COUNT {}", self.hashes.len());
                                                             // Generate the file here already
-                                                            chaos_cb(&b, &origwasm, &st);
+                                                            chaos_cb(&b, &origwasm);
                                                             continue;
                                                         }
                                                         Err(e) => {
@@ -269,6 +271,7 @@ impl Stacking {
                                             };
 
                                         } else {
+                                            
                                             self.current = (b.clone(), self.index + 1);
                                             self.index += 1;
                 
@@ -277,12 +280,67 @@ impl Stacking {
                                             }
                 
                                             eprintln!("=== TRANSFORMED {}", self.index);
-                                            break;
+                                                break;
                                         }
                                     }
                                     None => {
-                                        break
+                                        
                                     }
+                                }
+                            } else {
+                                eprintln!("Not initial state");
+                                if !self.check_io {
+                                    if self.chaos_mode {
+                                        // TODO if chaos mode...select from the DB ?
+                                        let random_item = self.rnd.gen_range(0..self.hashes.len());
+                                        
+                                        match self.hashes.iter().take(random_item)
+                                        .next() {
+                                            Some(random_item) => {
+
+                                                match random_item {
+                                                    Ok(random_item) => {
+                                                        let k = random_item.0;
+                                                        // eprintln!("Random key {:?} out of {}", k, self.hashes.len());
+                                                        let random_curr = random_item.1;
+                                                        // The val is the value is the wasm + the index in le bytes
+                                                        let index = random_curr[0..8].to_vec();
+                                                        let wasm = random_curr[8..].to_vec();
+                                                        self.current = (wasm, usize::from_le_bytes(index.as_slice().try_into().unwrap()));
+                                                        self.index  = self.current.1 + 1;
+                                                    
+                                                        eprintln!("=== CHAOS {}", self.index - 1);
+                                                        eprintln!("=== CHAOS COUNT {}", self.hashes.len());
+                                                        // Generate the file here already
+                                                        chaos_cb(&b, &origwasm);
+                                                        continue;
+                                                    }
+                                                    Err(e) => {
+                                                        eprintln!("Error {}", e);
+                                                        // We could not mutate the wasm, we skip it
+                                                        continue
+                                                    }
+                                                }
+                                            }
+                                            None => {
+                                                continue
+                                            }
+                                        };
+
+                                    } else {
+                                        
+                                        self.current = (b.clone(), self.index + 1);
+                                        self.index += 1;
+            
+                                        if self.index % 10000 == 9999 {
+                                            eprintln!("{} mutations", self.index);
+                                        }
+            
+                                        eprintln!("=== TRANSFORMED {}", self.index);
+                                        break;
+                                    }
+                                } else {
+                                    panic!("To check IO the original state must be set (the original  program should be executable)");
                                 }
                             }
                             
@@ -329,7 +387,7 @@ fn main() {
 
     let mut C = 0;
     loop {
-        stack.next(|new, parent, rs|{
+        stack.next(|new, parent|{
             let hash = blake3::hash(&new);
             let hash2 = blake3::hash(&parent);
             let name = format!("{}.{}.{}.chaos.wasm", opts.output.to_str().unwrap(), hash2, hash);
@@ -366,7 +424,13 @@ fn main() {
 
                 eprintln!("=== STACKED");
             }
+            
+            if stack.index >= opts.count {
+                break;
+            }
         }
+
+
     }
 
     // Assert that we have X different mutations
