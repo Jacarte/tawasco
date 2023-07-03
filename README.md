@@ -41,4 +41,5 @@ To reproduce this attacks and defenses. We propose to use a separated machine. F
         - The attack works only with PIN. It was easier for plotting and filtrating non-Wasm traces.
     - [x] Host based with wasmtime
 - [x] Create automatic benchmark for measuring exfiltration accuracy
-- [x] Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack. Sadly :( wasm-mutate does not help in this case.
+- [x] ~Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack. Sadly :( wasm-mutate does not help in this case.~
+- [x] While we harden the attack, it is still possible :(  
