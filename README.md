@@ -10,16 +10,6 @@ The idea is to have POC for attacks on Wasm execution scenarios. We add a divers
 - Rust nightly. Install it with `rustup install nightly`. We need nightly beacuase we use some `asm!` experimental features to directly write Wasm code from Rust (see [How to deploy hand made Wasm code in Fastly Compute@Edge.](https://www.jacarte.me/blog/2021/HandMadeWasmDeploInFastly/))
 
 
-## Roadmap browser
-
-- [ ] Port contention side channel
-  - [ ] Implement instruction port contention predictor.
-    - [ ] Support high accurate timer (probably using Firefox version 90 for the POC).
-    - [ ] Crate Wasm binary to execute in the browser.
-    - [ ] Create native binary that makes port contention.
-    - [ ] Measures port contention in the browser.
-  - [ ] Create automatic benchmark for measuring predictor accuracy.
-  - [ ] Apply wasm-mutate to the port predictor and the listener. Measure the impact on the accuracy of the predictor.
 
 
 ## Roadmap for whitebox crypto challenges
@@ -41,4 +31,16 @@ To reproduce this attacks and defenses. We propose to use a separated machine. F
         - The attack works only with PIN. It was easier for plotting and filtrating non-Wasm traces.
     - [x] Host based with wasmtime
 - [x] Create automatic benchmark for measuring exfiltration accuracy
-- [x] Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack. Sadly :( wasm-mutate does not help in this case.
+- [x] ~Apply wasm-mutate to victim. Measure the impact on the accuracy of the attack. Sadly :( wasm-mutate does not help in this case.~
+- [x] While we harden the attack, it is still possible :(  
+
+## Roadmap browser
+
+- [ ] Port contention side channel
+  - [ ] Implement instruction port contention predictor.
+    - [ ] Support high accurate timer (probably using Firefox version 90 for the POC).
+    - [ ] Crate Wasm binary to execute in the browser.
+    - [ ] Create native binary that makes port contention.
+    - [ ] Measures port contention in the browser.
+  - [ ] Create automatic benchmark for measuring predictor accuracy.
+  - [ ] Apply wasm-mutate to the port predictor and the listener. Measure the impact on the accuracy of the predictor.
