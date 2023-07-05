@@ -112,12 +112,13 @@ fn swap(current: &mut Vec<u8>, new_interesting: Vec<u8>) {
     *current = new_interesting;
 }
 
-struct Stacking {
+pub struct Stacking {
     current: (Vec<u8>, usize),
     original: Vec<u8>,
     check_args: Vec<String>,
     original_state: Option<eval::ExecutionResult>,
-    index: usize,
+    pub index: usize,
+    pub step: usize,
     fuel: u64,
     count: usize,
     rnd: SmallRng,
@@ -136,6 +137,7 @@ impl Stacking {
     pub fn new(
         current: Vec<u8>,
         count: usize,
+        step: usize,
         seed: u64,
         remove_cache: bool,
         cache_dir: String,
@@ -183,6 +185,7 @@ impl Stacking {
             fuel,
             check_mem,
             count,
+            step,
             rnd: SmallRng::seed_from_u64(seed),
             variants_per_parent,
             // Set the cache size to 3GB
@@ -292,7 +295,12 @@ impl Stacking {
                                             }
                 
                                             eprintln!("=== TRANSFORMED {}", self.index);
-                                                break;
+
+                                            if self.index % self.step == 0 {
+                                                // Call the cb
+                                                chaos_cb(&b, &origwasm);
+                                            }
+                                            break;
                                         }
                                     }
                                     None => {
@@ -349,6 +357,11 @@ impl Stacking {
                                         }
             
                                         eprintln!("=== TRANSFORMED {}", self.index);
+
+                                        if self.index % self.step == 0 {
+                                            // Call the cb
+                                            chaos_cb(&b, &origwasm);
+                                        }
                                         break;
                                     }
                                 } else {
@@ -383,6 +396,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut stack = Stacking::new(
         bytes,
         opts.count,
+        opts.step,
         opts.seed,
         opts.remove_cache,
         opts.cache_folder,
@@ -394,7 +408,7 @@ fn main() -> Result<(), anyhow::Error> {
         opts.variants_per_parent,
         opts.save_compiling,
         opts.no_preserve_semantics,
-        opts.args_generator
+        opts.args_generator,
     );
 
     if opts.print_meta {
@@ -422,39 +436,40 @@ fn main() -> Result<(), anyhow::Error> {
     }
     let mut C = 0;
     loop {
-        stack.next(|new, parent|{
-            let hash = blake3::hash(&new);
-            let hash2 = blake3::hash(&parent);
-            let name = format!("{}.{}.{}.chaos.wasm", opts.output.to_str().unwrap(), hash2, hash);
-            // Write the current to fs
-            std::fs::write(&name, new)
-                .expect("Could not write the output file");
-            
-            // Also save the cwasm
-            if opts.save_compiling {
-                let mut config = wasmtime::Config::default();
-                let config = config.strategy(wasmtime::Strategy::Cranelift);
-                // We need to save the generated machine code to disk
-
-                // Create a new store
-                let engine = wasmtime::Engine::new(&config).unwrap();
-
-                let module = wasmtime::Module::new(&engine, &new).unwrap();
-
-                // Serialize it
-                // TODO check if it was already serialized, avoid compiling again
-                let serialized = module.serialize().unwrap();
-                // Save it to disk, get the filename from the argument path
-                std::fs::write(format!("{}{}.cwasm", opts.output.to_str().unwrap(), hash), serialized).unwrap();
-            }
-
-        });
-
-        if !opts.chaos_mode {
-            if stack.index % opts.step == 0 {
-                let name = format!("{}.{}.wasm", opts.output.to_str().unwrap(), stack.index);
+        if opts.chaos_mode {
+            stack.next(|new, parent|{
+                let hash = blake3::hash(&new);
+                let hash2 = blake3::hash(&parent);
+                let name = format!("{}.{}.{}.chaos.wasm", opts.output.to_str().unwrap(), hash2, hash);
                 // Write the current to fs
-                std::fs::write(&name, stack.current.0.clone())
+                std::fs::write(&name, new)
+                    .expect("Could not write the output file");
+                
+                // Also save the cwasm
+                if opts.save_compiling {
+                    let mut config = wasmtime::Config::default();
+                    let config = config.strategy(wasmtime::Strategy::Cranelift);
+                    // We need to save the generated machine code to disk
+
+                    // Create a new store
+                    let engine = wasmtime::Engine::new(&config).unwrap();
+
+                    let module = wasmtime::Module::new(&engine, &new).unwrap();
+
+                    // Serialize it
+                    // TODO check if it was already serialized, avoid compiling again
+                    let serialized = module.serialize().unwrap();
+                    // Save it to disk, get the filename from the argument path
+                    std::fs::write(format!("{}{}.cwasm", opts.output.to_str().unwrap(), hash), serialized).unwrap();
+                }
+
+            });
+        } else {
+            let index = stack.index;
+            stack.next(|new, parent|{
+                let name = format!("{}.{}.wasm", opts.output.to_str().unwrap(), index);
+                // Write the current to fs
+                std::fs::write(&name, new.clone())
                     .expect("Could not write the output file");
 
 
@@ -468,21 +483,20 @@ fn main() -> Result<(), anyhow::Error> {
                     // Create a new store
                     let engine = wasmtime::Engine::new(&config).unwrap();
     
-                    let module = wasmtime::Module::new(&engine, &stack.current.0.clone()).unwrap();
+                    let module = wasmtime::Module::new(&engine, &new.clone()).unwrap();
     
                     // Serialize it
                     // TODO check if it was already serialized, avoid compiling again
                     let serialized = module.serialize().unwrap();
                     // Save it to disk, get the filename from the argument path
-                    std::fs::write(format!("{}.{}.cwasm", opts.output.to_str().unwrap(), stack.index), serialized).unwrap();
+                    std::fs::write(format!("{}.{}.cwasm", opts.output.to_str().unwrap(), index), serialized).unwrap();
                 }
-            }
-            
+            });
+
             if stack.index >= opts.count {
                 break;
             }
         }
-
 
     }
 
@@ -748,7 +762,7 @@ mod eval {
         return None
         
     }
-    use crate::process::ExitStatus;
+    use std::process::ExitStatus;
     use std::env::args;
 
     fn get_args(
