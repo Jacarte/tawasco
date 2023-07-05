@@ -1377,6 +1377,7 @@ dependencies = [
  "thiserror",
  "wasi-common",
  "wasm-mutate",
+ "wasmparser 0.107.0",
  "wasmtime",
  "wasmtime-jit",
  "wasmtime-wasi",

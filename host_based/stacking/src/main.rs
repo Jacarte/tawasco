@@ -94,6 +94,18 @@ struct Options {
     /// Saves the execution stderr and stdout
     #[arg(long = "save-io", default_value = "false", action)]
     save_io: bool,
+
+    /// Just prints metadata of the input binary
+    #[arg(long = "print-meta", default_value = "false", action)]
+    print_meta: bool,
+
+    /// Target specific function index to diversify
+    #[arg(long = "function_index")]
+    function_index: Option<usize>,
+
+    /// Target specific function name to diversify
+    #[arg(long = "function_name")]
+    function_name: Option<String>,
 }
 
 fn swap(current: &mut Vec<u8>, new_interesting: Vec<u8>) {
@@ -360,7 +372,7 @@ impl Stacking {
     }
 }
 
-fn main() {
+fn main() -> Result<(), anyhow::Error> {
     // Init logs
     env_logger::init();
 
@@ -385,6 +397,28 @@ fn main() {
         opts.args_generator
     );
 
+    if opts.print_meta {
+        // Just output the binary metadata. How many functions, number of instructions per function, etc.
+        let mut wasmmutate = WasmMutate::default();
+        let mut wasmmutate = wasmmutate.preserve_semantics(!stack.no_preserve_semantics);
+        wasmmutate.setup(&stack.original);
+        let info = wasmmutate.info();
+        let code_section = info.get_code_section();
+        let sectionreader = wasmparser::CodeSectionReader::new(code_section.data, 0).unwrap();
+        println!("Function Count: {}", sectionreader.count());
+        // Calculating the total number of instructions
+        let readers = sectionreader.into_iter().collect::<Result<Vec<_>, _>>().unwrap();
+        let mut total_instructions = 0;
+        for reader in &readers {
+            let mut reader = reader.get_operators_reader().unwrap();
+            while !reader.eof() {
+                let _ = reader.read().unwrap();
+                total_instructions += 1;
+            }
+        }
+        println!("Instructions count: {}", total_instructions);
+        return Ok(())
+    }
     let mut C = 0;
     loop {
         stack.next(|new, parent|{
@@ -458,7 +492,8 @@ fn main() {
     if !opts.chaos_mode{
         std::fs::write(&opts.output, stack.current.0).expect("Could not write the output file");
     }
-    //Ok(())
+    Ok(())
+
 }
 
 // Somesort of the same as wasm-mutate fuzz

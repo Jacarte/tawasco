@@ -10,6 +10,7 @@ authors = ["Jacarte <jacarte9212@gmail.com>"]
 # wasmtime as a dep
 [dependencies]
 wasm-mutate = { path = "../../wasm-tools/crates/wasm-mutate", optional = true  }
+wasmparser = { path = "../../wasm-tools/crates/wasmparser"  }
 wasmtime = { git = "https://github.com/Jacarte/wasmtime", rev = "20c58362959562627b93bfb9f15423ef0d4f4376" }
 wasmtime-wasi = { git = "https://github.com/Jacarte/wasmtime", rev = "20c58362959562627b93bfb9f15423ef0d4f4376" }
 wasi-common = { git = "https://github.com/Jacarte/wasmtime", rev = "20c58362959562627b93bfb9f15423ef0d4f4376" }
