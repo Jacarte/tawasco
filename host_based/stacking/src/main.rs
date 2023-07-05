@@ -158,7 +158,7 @@ impl Stacking {
 
         let config = sled::Config::default()
             .path(cache_dir.clone().to_owned())
-            .cache_capacity(/* 4Gb */ 4 * 1024 * 1024 * 1024);
+            .cache_capacity(/* 4Gb */ 1 * 1024 * 1024 * 1024);
 
         let original_state = if check_io {
             match eval::execute_single(&current, check_args.clone(), fuel) {
