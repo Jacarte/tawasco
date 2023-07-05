@@ -405,6 +405,7 @@ fn main() -> Result<(), anyhow::Error> {
         let info = wasmmutate.info();
         let code_section = info.get_code_section();
         let sectionreader = wasmparser::CodeSectionReader::new(code_section.data, 0).unwrap();
+        println!("Name: {}", opts.input.display());
         println!("Function Count: {}", sectionreader.count());
         // Calculating the total number of instructions
         let readers = sectionreader.into_iter().collect::<Result<Vec<_>, _>>().unwrap();
